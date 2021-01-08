@@ -1,16 +1,12 @@
 package main
 
 import (
-	"context"
-	"crypto/ecdsa"
 	"fmt"
 	"log"
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
@@ -29,6 +25,9 @@ const (
 	OneSplitMainnetAddress = "0xC586BeF4a0992C495Cf22e1aeEE4E446CECDee0E"
 )
 
+//全局变量
+var TInfos TokenInfos
+
 func main() {
 	fmt.Println("start tasting code....")
 	// transferEvent()
@@ -44,11 +43,17 @@ func main() {
 		log.Fatal(err)
 	}
 
-	ticker := time.NewTicker(10 * time.Second)
+	if err := TInfos.LoadConfig(); err != nil {
+		fmt.Println("failed to load config from default file:", err)
+		return
+	}
+
+	ticker := time.NewTicker(2 * time.Second)
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
+				fmt.Println("it's time to go to checking")
 				//变量当前的配置文件中的token信息
 				//需要的信息有：
 				//1. source的地址   就是本金合约地址
@@ -56,63 +61,65 @@ func main() {
 				//3. 要交换的本金数量
 				//4. 参与的dex的数量
 				//5. flag的参数是什么 这里是0
+				for _, value := range TInfos.TConfig {
 
-				distribution, err := instance.GetExpectedReturn(nil, common.HexToAddress(eth), common.HexToAddress(dai), big.NewInt(1), big.NewInt(100), big.NewInt(0))
-				if err != nil {
-					fmt.Println("what's problem, err:", err)
+					distri, err := instance.GetExpectedReturn(nil, common.HexToAddress(value.SourceAddress), common.HexToAddress(value.Destination), big.NewInt(1), big.NewInt(100), big.NewInt(0))
+					if err != nil {
+						fmt.Println("what's problem, err:", err)
+						continue
+					}
+
+					fmt.Println("current token pair :", value.Name, " distribution is:", distri)
+					if action, err := value.CheckStrategy(DistributionValue{
+						distri.ReturnAmount,
+						distri.Distribution,
+					}); err != nil {
+						fmt.Println("failed to check the strategy,err :", err)
+					} else {
+						fmt.Println("what have i get..:", action)
+						//如果达到要求，那么就开始进行交易
+						if action == "sell" {
+							//eth 换成 dai
+							if err := SwapPrepare(client, value.SourceAddress, value.Destination, value.TradeAddress, value.TradeAddressPriv, distri); err != nil {
+								fmt.Println("failed to sell eth to erc20token err:", err)
+
+							}
+							// return
+						} else if action == "buy" {
+							//dai 换成 eth
+							distribuy, err := instance.GetExpectedReturn(nil, common.HexToAddress(value.SourceAddress), common.HexToAddress(value.Destination), big.NewInt(1), big.NewInt(100), big.NewInt(0))
+							if err != nil {
+								fmt.Println("what's problem, err:", err)
+								time.Sleep(1 * time.Second)
+								continue
+							}
+							if err := SwapPrepare(client, value.Destination, value.SourceAddress, value.TradeAddress, value.TradeAddressPriv, distribuy); err != nil {
+								fmt.Println("failed to sell erc20token to eth  err:", err)
+							}
+						}
+
+					}
+
 				}
-				fmt.Println("distribution is:", distribution)
+
 			}
 
 		}
 	}()
 
-	//获取到当前到交易方案，这个时候，如果满足一定到条件
+	ChangeChannel := make(chan bool, 1)
+	go GrpcServer(ChangeChannel)
 
-	ok, err := CheckStrategy(DistributionValue{
-		distribution.ReturnAmount,
-		distribution.Distribution,
-	})
-
-	//状态评估之后的结果，
-	//如果评估成功，需要进行交易，则走下一步
-	privateKey, err := crypto.HexToECDSA("f36a83b3c3e5b506145f267fff3b986e499a2730fbc08e6c08a09b160e87ad83")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		log.Fatal("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
-	}
-
-	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	gasPrice, err := client.SuggestGasPrice(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	auth := bind.NewKeyedTransactor(privateKey)
-	auth.Nonce = big.NewInt(int64(nonce))
-	auth.Value = big.NewInt(0)     // in wei
-	auth.GasLimit = uint64(300000) // in units
-	auth.GasPrice = gasPrice
-
-	if ok {
-		tx, err := instance.Swap(auth, common.HexToAddress(eth), common.HexToAddress(dai), big.NewInt(1), big.NewInt(700), distribution.Distribution, big.NewInt(0))
-		if err != nil {
-			fmt.Println("got error:", err)
-		} else {
-			fmt.Println("tx is:", tx)
+	for {
+		select {
+		case <-ChangeChannel:
+			if err := TInfos.LoadConfig(); err != nil {
+				fmt.Println("failed to load config from default file:", err)
+				continue
+			}
 		}
-
 	}
+
 }
 
 //CheckStrategy 检查当前的价格条件是否满足要求
@@ -126,4 +133,4 @@ func CheckStrategy(dis DistributionValue) (bool, error) {
 	return false, nil
 }
 
-//监控的方法
+//配置文件更新方法
