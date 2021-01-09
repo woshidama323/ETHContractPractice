@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"math/big"
@@ -29,9 +30,16 @@ const (
 var TInfos TokenInfos
 
 func main() {
-	fmt.Println("start tasting code....")
+	fmt.Println("start robot server....")
 	// transferEvent()
-	client, err := ethclient.Dial(ganachehttp)
+
+	netmode := flag.String("netmode", "mainnet", "which net you want to use")
+	flag.Parse()
+	if netmode == nil {
+		log.Fatalf("please input a right network:%s\n", *netmode)
+	}
+
+	client, err := ethclient.Dial(*netmode)
 	if err != nil {
 		log.Fatal(err)
 	}
