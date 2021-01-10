@@ -26,8 +26,11 @@ const (
 	OneSplitMainnetAddress = "0xC586BeF4a0992C495Cf22e1aeEE4E446CECDee0E"
 )
 
-//全局变量
+//TInfos 全局变量 token的具体信息
 var TInfos TokenInfos
+
+//OneInchInstance 的实例
+var OneInchInstance *Onesplitaudit
 
 func main() {
 	fmt.Println("start robot server....")
@@ -44,12 +47,16 @@ func main() {
 		log.Fatal(err)
 	}
 
+	ForTokenClient := client
+
 	//onesplitaddress 的合约地址
 	oneSplitAddress := common.HexToAddress(OneSplitMainnetAddress)
 	instance, err := NewOnesplitaudit(oneSplitAddress, client)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	OneInchInstance = instance
 
 	if err := TInfos.LoadConfig(); err != nil {
 		fmt.Println("failed to load config from default file:", err)
@@ -70,43 +77,19 @@ func main() {
 				//4. 参与的dex的数量
 				//5. flag的参数是什么 这里是0
 				for _, value := range TInfos.TConfig {
-
-					distri, err := instance.GetExpectedReturn(nil, common.HexToAddress(value.SourceAddress), common.HexToAddress(value.Destination), big.NewInt(1), big.NewInt(100), big.NewInt(0))
+					result, err := value.PriceMonitor()
 					if err != nil {
-						fmt.Println("what's problem, err:", err)
+						fmt.Println("Failed to monitor price for pair:", value.Name, " ,err:", err)
 						continue
 					}
 
-					fmt.Println("current token pair :", value.Name, " distribution is:", distri)
-					if action, err := value.CheckStrategy(DistributionValue{
-						distri.ReturnAmount,
-						distri.Distribution,
-					}); err != nil {
-						fmt.Println("failed to check the strategy,err :", err)
-					} else {
-						fmt.Println("what have i get..:", action)
-						//如果达到要求，那么就开始进行交易
-						if action == "sell" {
-							//eth 换成 dai
-							if err := SwapPrepare(client, value.SourceAddress, value.Destination, value.TradeAddress, value.TradeAddressPriv, distri); err != nil {
-								fmt.Println("failed to sell eth to erc20token err:", err)
+					value.Action(result)
 
-							}
-							// return
-						} else if action == "buy" {
-							//dai 换成 eth
-							distribuy, err := instance.GetExpectedReturn(nil, common.HexToAddress(value.SourceAddress), common.HexToAddress(value.Destination), big.NewInt(1), big.NewInt(100), big.NewInt(0))
-							if err != nil {
-								fmt.Println("what's problem, err:", err)
-								time.Sleep(1 * time.Second)
-								continue
-							}
-							if err := SwapPrepare(client, value.Destination, value.SourceAddress, value.TradeAddress, value.TradeAddressPriv, distribuy); err != nil {
-								fmt.Println("failed to sell erc20token to eth  err:", err)
-							}
-						}
-
-					}
+					//先查余额
+					//扣除必用项之后，还剩多少余额，然后全部交易掉
+					//利用剩余余额计算可以收获多少对应的代币  进一步计算当前的价格
+					//利用以上信息，当前价格等决定交易策略
+					//进行交易
 
 				}
 
