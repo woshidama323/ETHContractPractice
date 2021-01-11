@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,7 +14,10 @@ import (
 	"os/user"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
@@ -96,148 +100,6 @@ func (Tcon *TokenConfig) TradeAddrBalanceForETH() (*big.Int, error) {
 	return balance, nil
 }
 
-//CheckStrategy 用于判断当前是否达到要求
-func (Tcon *TokenConfig) CheckStrategy(dis DistributionValue) (string, error) {
-	//1. 价格是否大于一定的数值
-	//returnamount的值会大于 max 这个时候卖出
-	if dis.ReturnAmount.Cmp(new(big.Int).SetUint64(Tcon.Upper)) >= 0 {
-		fmt.Println("get the right price for swaping")
-		return "sell", nil
-	} else if dis.ReturnAmount.Cmp(new(big.Int).SetUint64(Tcon.Lower)) <= 0 {
-		return "buy", nil
-	}
-	return "", nil
-}
-
-//GetExpectedReturnForTokens 封装一下oneinch的getexpectedreturn
-func (Tcon *TokenConfig) GetExpectedReturnForTokens() (struct {
-	ReturnAmount *big.Int
-	Distribution []*big.Int
-}, error) {
-
-	//当前的交易对是属于哪一种？
-	//这两种币种的余额 from账户中哪一个有  两个中 取多的，然后作为
-	//正常情况下，erc20的代币，某一方一定是全部都是0 所以这里呢，如果都不是eth的交易对，那么可以用这个作为依据
-
-	//eth余额获取
-	ethBalance, err := Tcon.TradeAddrBalanceForETH()
-	if err != nil {
-		fmt.Printf("Failed to get eth balance from netowrk for account:[%s],err:", Tcon.TradeAddress, err)
-		return struct {
-			ReturnAmount *big.Int
-			Distribution []*big.Int
-		}{}, err
-	}
-
-	//erc20 sourcetoken 获取
-	// sourceBalance, err := Tcon.TradeAddrBalanceForSource()
-	_, err = Tcon.TradeAddrBalanceForSource()
-	if err != nil {
-		fmt.Printf("failed to get erc20 balance for source token:[%s] for account:[%s]", Tcon.SourceAddress, Tcon.TradeAddress)
-		return struct {
-			ReturnAmount *big.Int
-			Distribution []*big.Int
-		}{}, err
-	}
-
-	//erc20 destinationtoken获取
-	// destinationBalance, err := Tcon.TradeAddrBalanceForDestination()
-	_, err = Tcon.TradeAddrBalanceForDestination()
-	if err != nil {
-		fmt.Printf("failed to get erc20 balance for source token:[%s] for account:[%s]", Tcon.SourceAddress, Tcon.TradeAddress)
-		return struct {
-			ReturnAmount *big.Int
-			Distribution []*big.Int
-		}{}, err
-	}
-
-	initAmount := big.NewInt(0)
-	initETHBalanceForToken.Int(initAmount)
-	if strings.EqualFold(Tcon.SourceAddress, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE") {
-
-		//eth余额 大于 初始的量
-		//eth余额大于最小额度，就认为当前的潜在交易对象是从这个方向开始的，
-		if ethBalance.Cmp(initAmount) > 0 {
-
-			canTradeEth := big.NewInt(0).Sub(ethBalance, initAmount)
-			distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.SourceAddress), common.HexToAddress(Tcon.Destination), canTradeEth, big.NewInt(100), big.NewInt(0))
-			if err != nil {
-				fmt.Println("failed to GetExpectedReturn from 1inch, err:", err)
-				return struct {
-					ReturnAmount *big.Int
-					Distribution []*big.Int
-				}{}, err
-			}
-
-			return distri, nil
-		}
-		return struct {
-			ReturnAmount *big.Int
-			Distribution []*big.Int
-		}{}, errors.New("ethBalance is smaller than initAmount")
-	}
-
-	if strings.EqualFold(Tcon.Destination, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE") {
-		//eth余额 大于 初始的量
-		//eth余额大于最小额度，就认为当前的潜在交易对象是从这个方向开始的，
-		if ethBalance.Cmp(initAmount) > 0 {
-
-			canTradeEth := big.NewInt(0).Sub(ethBalance, initAmount)
-			//
-			distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.SourceAddress), common.HexToAddress(Tcon.Destination), canTradeEth, big.NewInt(100), big.NewInt(0))
-			if err != nil {
-				fmt.Println("failed to GetExpectedReturn from 1inch, err:", err)
-				return struct {
-					ReturnAmount *big.Int
-					Distribution []*big.Int
-				}{}, err
-			}
-
-			return distri, nil
-		}
-		return struct {
-			ReturnAmount *big.Int
-			Distribution []*big.Int
-		}{}, errors.New("ethBalance is smaller than initAmount")
-	}
-
-	// fmt.Println("current token pair :", value.Name, " distribution is:", distri)
-	// if action, err := value.CheckStrategy(DistributionValue{
-	// 	distri.ReturnAmount,
-	// 	distri.Distribution,
-	// }); err != nil {
-	// 	fmt.Println("failed to check the strategy,err :", err)
-	// } else {
-	// 	fmt.Println("what have i get..:", action)
-	// 	//如果达到要求，那么就开始进行交易
-	// 	if action == "sell" {
-	// 		//eth 换成 dai
-	// 		if err := SwapPrepare(client, value.SourceAddress, value.Destination, value.TradeAddress, value.TradeAddressPriv, distri); err != nil {
-	// 			fmt.Println("failed to sell eth to erc20token err:", err)
-
-	// 		}
-	// 		// return
-	// 	} else if action == "buy" {
-	// 		//dai 换成 eth
-	// 		distribuy, err := instance.GetExpectedReturn(nil, common.HexToAddress(value.SourceAddress), common.HexToAddress(value.Destination), big.NewInt(1), big.NewInt(100), big.NewInt(0))
-	// 		if err != nil {
-	// 			fmt.Println("what's problem, err:", err)
-	// 			time.Sleep(1 * time.Second)
-	// 			continue
-	// 		}
-	// 		if err := SwapPrepare(client, value.Destination, value.SourceAddress, value.TradeAddress, value.TradeAddressPriv, distribuy); err != nil {
-	// 			fmt.Println("failed to sell erc20token to eth  err:", err)
-	// 		}
-	// 	}
-
-	// }
-	// return nil
-	return struct {
-		ReturnAmount *big.Int
-		Distribution []*big.Int
-	}{}, nil
-}
-
 //PriceMonitor 设定交易对A<->B B作为基准, 但是两者B的金额相对于A较大，这样保证计算时为整数，比如B为ETH 1个B可以有1200个A
 func (Tcon *TokenConfig) PriceMonitor() (struct {
 	ReturnAmount *big.Int
@@ -245,6 +107,7 @@ func (Tcon *TokenConfig) PriceMonitor() (struct {
 }, error) {
 
 	distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), big.NewInt(1), big.NewInt(100), big.NewInt(0))
+	fmt.Printf("monitor current price is %d, distribution is [%d]", distri.ReturnAmount, distri.Distribution)
 	if err != nil {
 		fmt.Println("failed to GetExpectedReturn from 1inch, err:", err)
 		return struct {
@@ -265,31 +128,223 @@ func (Tcon *TokenConfig) Action(dis struct {
 	//1. 在 A <-> B 对应的前提下
 	// 当前价格超过最大值，则
 	if dis.ReturnAmount.Cmp(new(big.Int).SetUint64(Tcon.Upper)) >= 0 {
-		fmt.Println("---Pair: [%s] Price: [%d] have been larger than Upper: [%d], starting swap from B -> A", Tcon.Name, dis.ReturnAmount, Tcon.Upper)
+		fmt.Printf("---Pair: [%s] Price: [%d] have been larger than Upper: [%d], starting swap from B -> A\n", Tcon.Name, dis.ReturnAmount, Tcon.Upper)
 		// 检查各个币种的余额，如果满足条件则进行兑换
+		if err := Tcon.TokenSwap("fromBtoA"); err != nil {
+			fmt.Println("Action Got error:", err)
+		}
 	} else if dis.ReturnAmount.Cmp(new(big.Int).SetUint64(Tcon.Lower)) <= 0 {
 		// 当前价格低于最小值，则
-		fmt.Println("---Pair [%s] Price: [%d] have been less than Lower [%d], starting swap from A -> B", Tcon.Name, dis.ReturnAmount, Tcon.Lower)
-
+		fmt.Printf("---Pair [%s] Price: [%d] have been less than Lower [%d], starting swap from A -> B\n", Tcon.Name, dis.ReturnAmount, Tcon.Lower)
+		if err := Tcon.TokenSwap("fromAtoB"); err != nil {
+			fmt.Println("Action Got error:", err)
+		}
 	} else {
-		fmt.Println(".-.-.- Pair [%s] Price: [%d] is between Lower:[%d] and Upper:[%d], starting swap from A -> B", Tcon.Name, dis.ReturnAmount, Tcon.Lower, Tcon.Upper)
+		//不交易
+		fmt.Printf(".-.-.- Pair [%s] Price: [%d] is between Lower:[%d] and Upper:[%d], starting swap from A -> B\n", Tcon.Name, dis.ReturnAmount, Tcon.Lower, Tcon.Upper)
 
 	}
 
 }
 
-//Action 监控到当前价格之后 应该如何应对
-func (Tcon *TokenConfig) TokenSwap(strategy string) {
-
-	if strategy == "fromAtoB" {
-		//先重新获取到具体的数据，
-
-	}
-	tx, err := OneInchInstance.Swap(auth, common.HexToAddress(Tcon.SourceAddress), common.HexToAddress(destination), balancenogas, big.NewInt(1), dis.Distribution, big.NewInt(0))
+//TokenSwap 监控到当前价格之后 应该如何应对
+func (Tcon *TokenConfig) TokenSwap(strategy string) error {
+	var tx *types.Transaction
+	var err error
+	auth, err := Tcon.BuildAuth()
 	if err != nil {
-		fmt.Println("got error:", err, " tx:", tx)
 		return err
 	}
+
+	//创建一个公用的函数
+	slipper := func(retValue *big.Int) *big.Int {
+		mul97 := big.NewInt(0).Mul(retValue, big.NewInt(97))
+		return big.NewInt(0).Div(mul97, big.NewInt(100))
+	}
+	if strategy == "fromAtoB" {
+		//先重新获取到具体的数据，
+		//当明确知道哪一个交易方向的时候,才去看看余额情况，如果这个方向上的source余额为空则拒绝交易
+		// var sBanlance *big.Int
+
+		initAmount := big.NewInt(0)
+		initETHBalanceForToken.Int(initAmount)
+
+		if strings.EqualFold(Tcon.SourceAddress, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE") {
+			//source是eth
+			ethBalance, err := Tcon.TradeAddrBalanceForETH()
+			if err != nil {
+				return err
+			}
+			//这个时候应该从eth 兑换成其他的币种，这个时候，
+
+			if ethBalance.Cmp(initAmount) > 0 {
+				canTradeEth := big.NewInt(0).Sub(ethBalance, initAmount)
+				distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.SourceAddress), common.HexToAddress(Tcon.Destination), canTradeEth, big.NewInt(100), big.NewInt(0))
+				if err != nil {
+					fmt.Println("failed to GetExpectedReturn from 1inch, err:", err)
+					return err
+				}
+				tx, err = OneInchInstance.Swap(auth, common.HexToAddress(Tcon.SourceAddress), common.HexToAddress(Tcon.Destination), canTradeEth, slipper(distri.ReturnAmount), distri.Distribution, big.NewInt(0))
+				if err != nil {
+					fmt.Println("got error:", err, " tx:", tx)
+					return err
+				}
+			} else {
+				fmt.Printf("account :%s has no enough eth for swap balance:%d", Tcon.TradeAddress, ethBalance)
+				return errors.New("")
+			}
+
+		} else {
+			sBanlanceErc20, err := Tcon.TradeAddrBalanceForSource()
+			if err != nil {
+				fmt.Println("erc20 token balance is zero for address:", Tcon.TradeAddress, " current token address:", Tcon.SourceAddress)
+				return err
+			}
+			if sBanlanceErc20.Cmp(big.NewInt(0)) > 0 {
+				//最小的return效果可以用滑点的方法
+				distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.SourceAddress), common.HexToAddress(Tcon.Destination), sBanlanceErc20, big.NewInt(1), big.NewInt(0))
+				if err != nil {
+					fmt.Println("failed to GetExpectedReturn from 1inch, err:", err)
+					return err
+				}
+				tx, err = OneInchInstance.Swap(auth, common.HexToAddress(Tcon.SourceAddress), common.HexToAddress(Tcon.Destination), sBanlanceErc20, slipper(distri.ReturnAmount), distri.Distribution, big.NewInt(0))
+				if err != nil {
+					fmt.Println("got error:", err, " tx:", tx)
+					return err
+				}
+			} else {
+				fmt.Printf("account :%s has no enough eth for swap balance:%s\n", Tcon.TradeAddress, sBanlanceErc20)
+			}
+
+		}
+
+	} else if strategy == "fromBtoA" {
+		//先重新获取到具体的数据，
+		//当明确知道哪一个交易方向的时候,才去看看余额情况，如果这个方向上的source余额为空则拒绝交易
+		// var sBanlance *big.Int
+
+		initAmount := big.NewInt(0)
+		initETHBalanceForToken.Int(initAmount)
+
+		if strings.EqualFold(Tcon.Destination, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE") {
+			//source是eth
+			dBalanceEth, err := Tcon.TradeAddrBalanceForETH()
+			if err != nil {
+				return err
+			}
+			//这个时候应该从eth 兑换成其他的币种，这个时候，
+
+			if dBalanceEth.Cmp(initAmount) > 0 {
+				canTradeEth := big.NewInt(0).Sub(dBalanceEth, initAmount)
+				fmt.Println("++++++ current sub initamount:", canTradeEth)
+				canTradeEth = big.NewInt(0).Sub(canTradeEth, big.NewInt(0).Mul(auth.GasPrice, big.NewInt(int64(auth.GasLimit))))
+				fmt.Println("++++++ current sub Gas:", canTradeEth)
+
+				if canTradeEth.Cmp(big.NewInt(0)) <= 0 {
+					fmt.Println("Current balance for address:", Tcon.TradeAddress, " is not enough for trading,canTradeEth:", canTradeEth)
+					return errors.New("is not enough for trading")
+				}
+
+				distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), canTradeEth, big.NewInt(100), big.NewInt(0))
+				if err != nil {
+					fmt.Println("failed to GetExpectedReturn from 1inch, err:", err)
+					return err
+				}
+
+				auth.Value = canTradeEth //big.NewInt(1) //
+
+				fmt.Println("........... distribution between swap", distri)
+
+				tx, err = OneInchInstance.Swap(auth, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), canTradeEth, slipper(distri.ReturnAmount), distri.Distribution, big.NewInt(0))
+				if err != nil {
+					fmt.Println("got error:", err, " tx:", tx)
+					return err
+				}
+				fmt.Println("*************** tx:", tx.Hash().String())
+			} else {
+				fmt.Printf("account :%s has no enough eth for swap balance:%s", Tcon.TradeAddress, dBalanceEth)
+				return errors.New("")
+			}
+
+		} else {
+			dBalanceErc20, err := Tcon.TradeAddrBalanceForDestination()
+			if err != nil {
+				return err
+			}
+			if dBalanceErc20.Cmp(big.NewInt(0)) > 0 {
+				//最小的return效果可以用滑点的方法
+				distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), dBalanceErc20, big.NewInt(1), big.NewInt(0))
+				if err != nil {
+					fmt.Println("failed to GetExpectedReturn from 1inch, err:", err)
+					return err
+				}
+				tx, err = OneInchInstance.Swap(auth, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), dBalanceErc20, slipper(distri.ReturnAmount), distri.Distribution, big.NewInt(0))
+				if err != nil {
+					fmt.Println("got error:", err, " tx:", tx)
+					return err
+				}
+			} else {
+				fmt.Printf("account :%s has no enough eth for swap balance:%d\n", Tcon.TradeAddress, dBalanceErc20)
+			}
+
+		}
+	}
+
+	fmt.Println("*************** tx:", tx.Hash().String())
+	return nil
+}
+
+//BuildAuth 创建auth为 合约操作
+func (Tcon *TokenConfig) BuildAuth() (*bind.TransactOpts, error) {
+
+	privateKey, err := crypto.HexToECDSA(Tcon.TradeAddressPriv)
+	if err != nil {
+		// log.Fatal(err)
+		return nil, err
+	}
+
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		log.Printf("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
+		return nil, errors.New("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
+	}
+
+	fmt.Println("Is this the same address provided from account:", crypto.PubkeyToAddress(*publicKeyECDSA), " == ", Tcon.TradeAddress)
+	nonce, err := ForTokenClient.PendingNonceAt(context.Background(), common.HexToAddress(Tcon.TradeAddress))
+	if err != nil {
+		// log.Fatal(err)
+		return nil, err
+	}
+
+	gasPrice, err := ForTokenClient.SuggestGasPrice(context.Background())
+	if err != nil {
+		// log.Fatal(err)
+		return nil, err
+	}
+	//todo 需要后期研究一下为什么这个接口获取不到正确的数据？
+	// gasLimit, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
+	// 	To:   &oneSplitAddress,
+	// 	Data: DataWrapperForGasEstimate(source, destination, big.NewInt(1), dis.ReturnAmount, dis.Distribution, big.NewInt(0)),
+	// })
+
+	// fmt.Println("gaslimit  is from network is :", gasLimit)
+
+	auth := bind.NewKeyedTransactor(privateKey)
+	auth.Nonce = big.NewInt(int64(nonce))
+
+	//todo 这里是要做为需要交易多少eth 或者erc20的代币来制定的。
+	// auth.Value = big.NewInt(1000001) // in wei
+	auth.GasLimit = uint64(3000000) // in unit  也同样需要乘以一个倍率
+
+	//13倍的gas费用 gas price调整为主网的130%
+	GasPrice13 := big.NewInt(0).Mul(gasPrice, big.NewInt(13))     //是否需要乘上一个倍率
+	auth.GasPrice = big.NewInt(0).Div(GasPrice13, big.NewInt(10)) //是否需要乘上一个倍率
+
+	GasUsedSum := big.NewInt(0).Mul(big.NewInt(0).SetInt64(300000), gasPrice)
+
+	fmt.Printf("Get gas price:%s, gas limit:%d, gas totle used:%d\n", auth.GasPrice, auth.GasLimit, GasUsedSum)
+	return auth, nil
 }
 
 // =======  总体token的策略 =========

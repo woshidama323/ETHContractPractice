@@ -47,7 +47,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	ForTokenClient := client
+	ForTokenClient = client
 
 	//onesplitaddress 的合约地址
 	oneSplitAddress := common.HexToAddress(OneSplitMainnetAddress)
