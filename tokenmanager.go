@@ -44,7 +44,64 @@ type TokenConfig struct {
 	//交易的账户 该账户拥有或者打算拥有该交易对的币种
 	TradeAddress     string `json:"tradeaddress"`
 	TradeAddressPriv string `json:"tradeaddresspriv"`
+	//保留交易地址的最小eth的量
+	TradeAddressReserveEth string `json:"tradeaddressreserveeth"`
+
+	//tradeaddress保留SourceAddress币种最小余额
+	TradeAddressReserveS string `json:"tradeaddressreservesrc"`
+
+	//tradeaddress保留SourceAddress币种最小余额
+	TradeAddressReserveD string `json:"tradeaddressreservedest"`
+
+	//增加币种有效数字
+	PrecisionSource uint64 `json:"precisionsource"`
+
+	//增加币种有效数字
+	PrecisionDestination uint64 `json:"precisiondestination"`
+
+	//test
+	IamhereForTest *big.Int
 }
+
+//MinReserverSourceAmount tradeaddress保留最小的source币种余额
+func (Tcon *TokenConfig) MinReserverSourceAmount() (*big.Int, error) {
+	if minBalance, ok := big.NewInt(0).SetString(Tcon.TradeAddressReserveS, 10); ok {
+		minBalance = big.NewInt(0).Mul(minBalance, big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(Tcon.PrecisionSource)), big.NewInt(0)))
+		fmt.Println("Current min Blance for TradeAddressReserveS: ", minBalance)
+		return minBalance, nil
+	}
+	return nil, errors.New("failed to parse string to big int for TradeAddressReserveS")
+}
+
+//MinReserverDestinationAmount tradeaddress保留destination币种最小的余额
+func (Tcon *TokenConfig) MinReserverDestinationAmount() (*big.Int, error) {
+	if minBalance, ok := big.NewInt(0).SetString(Tcon.TradeAddressReserveD, 10); ok {
+		minBalance = big.NewInt(0).Mul(minBalance, big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(Tcon.PrecisionDestination)), big.NewInt(0)))
+		fmt.Println("Current min Blance for TradeAddressReserveD: ", minBalance)
+		return minBalance, nil
+	}
+	return nil, errors.New("failed to parse string to big int for TradeAddressReserveD")
+}
+
+//MinReserverEthAmount tradeaddress保留最小的eth的余额
+func (Tcon *TokenConfig) MinReserverEthAmount() (*big.Int, error) {
+	if minBalance, ok := big.NewInt(0).SetString(Tcon.TradeAddressReserveEth, 10); ok {
+		minBalance = big.NewInt(0).Mul(minBalance, big.NewInt(0).Exp(big.NewInt(10), big.NewInt(18), big.NewInt(0)))
+		fmt.Println("Current min Blance for TradeAddressReserveEth: ", minBalance)
+		return minBalance, nil
+	}
+	return nil, errors.New("failed to parse string to big int for TradeAddressReserveEth")
+}
+
+//StringToAmount tradeaddress保留最小的eth的余额
+// func (Tcon *TokenConfig) StringToAmount(toconvert string) (*big.Int, error) {
+// 	if minBalance, ok := big.NewInt(0).SetString(toconvert, 10); ok {
+// 		minBalance = big.NewInt(0).Mul(minBalance, big.NewInt(0).Exp(big.NewInt(10), big.NewInt(18), big.NewInt(0)))
+// 		fmt.Println("Current min Blance for TradeAddressReserveEth: ", minBalance)
+// 		return minBalance, nil
+// 	}
+// 	return nil, errors.New("failed to parse string to big int for TradeAddressReserveEth")
+// }
 
 //TradeAddrBalanceForSource tradeAddress对于source币种的余额
 func (Tcon *TokenConfig) TradeAddrBalanceForSource() (*big.Int, error) {
@@ -106,7 +163,8 @@ func (Tcon *TokenConfig) PriceMonitor() (struct {
 	Distribution []*big.Int
 }, error) {
 
-	distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), big.NewInt(1), big.NewInt(100), big.NewInt(0))
+	GetPrice := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(Tcon.PrecisionDestination)), big.NewInt(0))
+	distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), GetPrice, big.NewInt(100), big.NewInt(0))
 	fmt.Printf("monitor current price is %d, distribution is [%d]", distri.ReturnAmount, distri.Distribution)
 	if err != nil {
 		fmt.Println("failed to GetExpectedReturn from 1inch, err:", err)

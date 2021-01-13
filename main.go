@@ -77,6 +77,7 @@ func main() {
 				//4. 参与的dex的数量
 				//5. flag的参数是什么 这里是0
 				for _, value := range TInfos.TConfig {
+					value.MinReserverEthAmount()
 					result, err := value.PriceMonitor()
 					if err != nil {
 						fmt.Println("Failed to monitor price for pair:", value.Name, " ,err:", err)
