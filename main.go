@@ -103,6 +103,12 @@ func main() {
 
 					value.Test()
 
+					//判断价格是否为0
+					if result.ReturnAmount.Cmp(big.NewInt(0)) <= 0 {
+						fmt.Printf(ErrorColor, "Error:")
+						fmt.Printf("Got zero price for pair:%v\n", value.Name)
+						continue
+					}
 					fmt.Println("................start Action................")
 					value.Action(result)
 
@@ -133,16 +139,3 @@ func main() {
 	}
 
 }
-
-//CheckStrategy 检查当前的价格条件是否满足要求
-func CheckStrategy(dis DistributionValue) (bool, error) {
-	//1. 价格是否大于一定的数值
-	//比如当前设定为 eth-dai 800
-	if dis.ReturnAmount.Cmp(big.NewInt(100)) >= 0 {
-		fmt.Println("get the right price for swaping")
-		return true, nil
-	}
-	return false, nil
-}
-
-//配置文件更新方法
