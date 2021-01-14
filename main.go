@@ -22,7 +22,7 @@ const (
 	eth = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
 	dai = "0x6b175474e89094c44da98b954eedeac495271d0f"
 
-	//onesplit合约地址
+	//OneSplitMainnetAddress onesplit合约地址
 	OneSplitMainnetAddress = "0xC586BeF4a0992C495Cf22e1aeEE4E446CECDee0E"
 )
 
@@ -76,14 +76,34 @@ func main() {
 				//3. 要交换的本金数量
 				//4. 参与的dex的数量
 				//5. flag的参数是什么 这里是0
-				for _, value := range TInfos.TConfig {
-					value.MinReserverEthAmount()
+				for index, value := range TInfos.TConfig {
+
+					if value.Status == "disable" {
+						fmt.Printf(WarningColor, "Warn ")
+						fmt.Printf("Pair:%s has been disabled\n", value.Name)
+					}
+					// value.MinReserverEthAmount()
 					result, err := value.PriceMonitor()
 					if err != nil {
 						fmt.Println("Failed to monitor price for pair:", value.Name, " ,err:", err)
 						continue
 					}
 
+					//检查当前是否有tx还处在pending状态
+					//test
+					// value.TxInfos = append(value.TxInfos, "0xab21585e21b45f65d758f7b0493333706e20cd44a7b2badb812817f43f89d299")
+					//end test
+					if status, pending, err := value.CheckTxStatus(); err != nil {
+						fmt.Printf("==%s\tCheckTxStatus\terr:%v\n", value.Name, err)
+					} else if pending {
+						continue
+					} else if status == "disable" {
+						TInfos.TConfig[index].Status = "disable"
+					}
+
+					value.Test()
+
+					fmt.Println("................start Action................")
 					value.Action(result)
 
 					//先查余额
