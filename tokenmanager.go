@@ -38,8 +38,8 @@ type TokenConfig struct {
 	Name          string `jons:"name"`
 	SourceAddress string `json:"sourceaddress"`
 	Destination   string `json:"destinationaddress"`
-	Upper         uint64 `json:"upper"` //价格波动的上限
-	Lower         uint64 `json:"lower"` //价格波动的下限
+	Upper         string `json:"upper"` //价格波动的上限
+	Lower         string `json:"lower"` //价格波动的下限
 
 	//交易的账户 该账户拥有或者打算拥有该交易对的币种
 	TradeAddress     string `json:"tradeaddress"`
@@ -67,37 +67,46 @@ type TokenConfig struct {
 
 	//如果发生过交易失败，则标记为disable
 	Status string `json:"status"`
+
+	//slipper
+	Slipper uint64 `json:"slipper"`
+
+	//gaslimit
+	GasLimit uint64 `json:"gaslimit"`
 }
 
-//MinReserverSourceAmount tradeaddress保留最小的source币种余额
-func (Tcon *TokenConfig) MinReserverSourceAmount() (*big.Int, error) {
-	if minBalance, ok := big.NewInt(0).SetString(Tcon.TradeAddressReserveS, 10); ok {
-		minBalance = big.NewInt(0).Mul(minBalance, big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(Tcon.PrecisionSource)), big.NewInt(0)))
-		fmt.Println("Current min Blance for TradeAddressReserveS: ", minBalance)
-		return minBalance, nil
+//StringToBigInt tradeaddress保留最小的source币种余额
+func (Tcon *TokenConfig) StringToBigInt(reserve string, precision uint64) (*big.Int, error) {
+
+	unit := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(precision)), big.NewInt(0))
+	if minBalance, ok := big.NewFloat(0).SetString(reserve); ok {
+		minBalance = big.NewFloat(0).Mul(minBalance, big.NewFloat(0).SetInt(unit))
+
+		minBalance.Int(unit)
+		return unit, nil
 	}
-	return nil, errors.New("failed to parse string to big int for TradeAddressReserveS")
+	return nil, errors.New("failed to parse string to big int")
 }
 
 //MinReserverDestinationAmount tradeaddress保留destination币种最小的余额
-func (Tcon *TokenConfig) MinReserverDestinationAmount() (*big.Int, error) {
-	if minBalance, ok := big.NewInt(0).SetString(Tcon.TradeAddressReserveD, 10); ok {
-		minBalance = big.NewInt(0).Mul(minBalance, big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(Tcon.PrecisionDestination)), big.NewInt(0)))
-		fmt.Println("Current min Blance for TradeAddressReserveD: ", minBalance)
-		return minBalance, nil
-	}
-	return nil, errors.New("failed to parse string to big int for TradeAddressReserveD")
-}
+// func (Tcon *TokenConfig) MinReserverDestinationAmount() (*big.Int, error) {
+// 	if minBalance, ok := big.NewInt(0).SetString(Tcon.TradeAddressReserveD, 10); ok {
+// 		minBalance = big.NewInt(0).Mul(minBalance, big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(Tcon.PrecisionDestination)), big.NewInt(0)))
+// 		fmt.Println("Current min Blance for TradeAddressReserveD: ", minBalance)
+// 		return minBalance, nil
+// 	}
+// 	return nil, errors.New("failed to parse string to big int for TradeAddressReserveD")
+// }
 
-//MinReserverEthAmount tradeaddress保留最小的eth的余额
-func (Tcon *TokenConfig) MinReserverEthAmount() (*big.Int, error) {
-	if minBalance, ok := big.NewInt(0).SetString(Tcon.TradeAddressReserveEth, 10); ok {
-		minBalance = big.NewInt(0).Mul(minBalance, big.NewInt(0).Exp(big.NewInt(10), big.NewInt(18), big.NewInt(0)))
-		fmt.Println("Current min Blance for TradeAddressReserveEth: ", minBalance)
-		return minBalance, nil
-	}
-	return nil, errors.New("failed to parse string to big int for TradeAddressReserveEth")
-}
+// //MinReserverEthAmount tradeaddress保留最小的eth的余额
+// func (Tcon *TokenConfig) MinReserverEthAmount() (*big.Int, error) {
+// 	if minBalance, ok := big.NewInt(0).SetString(Tcon.TradeAddressReserveEth, 10); ok {
+// 		minBalance = big.NewInt(0).Mul(minBalance, big.NewInt(0).Exp(big.NewInt(10), big.NewInt(18), big.NewInt(0)))
+// 		fmt.Println("Current min Blance for TradeAddressReserveEth: ", minBalance)
+// 		return minBalance, nil
+// 	}
+// 	return nil, errors.New("failed to parse string to big int for TradeAddressReserveEth")
+// }
 
 //StringToAmount tradeaddress保留最小的eth的余额
 // func (Tcon *TokenConfig) StringToAmount(toconvert string) (*big.Int, error) {
@@ -179,6 +188,13 @@ func (Tcon *TokenConfig) PriceMonitor() (struct {
 			Distribution []*big.Int
 		}{}, err
 	}
+	if distri.ReturnAmount.Cmp(big.NewInt(0)) <= 0 {
+		fmt.Printf("name:%s,returnamount is zero", Tcon.Name)
+		return struct {
+			ReturnAmount *big.Int
+			Distribution []*big.Int
+		}{}, errors.New("returnamount is zero")
+	}
 	return distri, nil
 }
 
@@ -252,23 +268,52 @@ func (Tcon *TokenConfig) Action(dis struct {
 	// 当前价格超过最大值，则
 	var tx string
 	var err error
-	if dis.ReturnAmount.Cmp(new(big.Int).SetUint64(Tcon.Upper)) >= 0 {
-		fmt.Printf("---Pair: [%s] Price: [%d] have been larger than Upper: [%d], starting swap from B -> A\n", Tcon.Name, dis.ReturnAmount, Tcon.Upper)
+	var UpperBigInt, LowerBigInt *big.Int
+
+	// if strings.EqualFold(Tcon.Destination, eth) {
+	// 	UpperBigInt, err = Tcon.StringToBigInt(Tcon.Upper, 18)
+	// 	if err != nil {
+	// 		fmt.Printf("faile to convert upper to big int err:%v", err)
+	// 		return
+	// 	}
+
+	// 	LowerBigInt, err = Tcon.StringToBigInt(Tcon.Lower, 18)
+	// 	if err != nil {
+	// 		fmt.Printf("faile to convert upper to big int err:%v", err)
+	// 		return
+	// 	}
+	// } else {
+	UpperBigInt, err = Tcon.StringToBigInt(Tcon.Upper, Tcon.PrecisionDestination)
+	if err != nil {
+		fmt.Printf("faile to convert upper to big int err:%v", err)
+		return
+	}
+
+	LowerBigInt, err = Tcon.StringToBigInt(Tcon.Lower, Tcon.PrecisionDestination)
+	if err != nil {
+		fmt.Printf("faile to convert upper to big int err:%v", err)
+		return
+	}
+	fmt.Printf("convert String to big int for upper:%v and lower:%v\n", UpperBigInt, LowerBigInt)
+	// }
+
+	if dis.ReturnAmount.Cmp(UpperBigInt) >= 0 {
+		fmt.Printf("---Pair: [%s] Price: [%s] have been larger than Upper: [%s], starting swap from B -> A\n", Tcon.Name, dis.ReturnAmount, UpperBigInt)
 		// 检查各个币种的余额，如果满足条件则进行兑换
 		tx, err = Tcon.TokenSwap("fromBtoA")
 		if err != nil {
 			fmt.Printf("Action Got error:%v\n", err)
 		}
-	} else if dis.ReturnAmount.Cmp(new(big.Int).SetUint64(Tcon.Lower)) <= 0 {
+	} else if dis.ReturnAmount.Cmp(LowerBigInt) <= 0 {
 		// 当前价格低于最小值，则
-		fmt.Printf("---Pair [%s] Price: [%d] have been less than Lower [%d], starting swap from A -> B\n", Tcon.Name, dis.ReturnAmount, Tcon.Lower)
+		fmt.Printf("---Pair [%s] Price: [%s] have been less than Lower [%s], starting swap from A -> B\n", Tcon.Name, dis.ReturnAmount, LowerBigInt)
 		tx, err = Tcon.TokenSwap("fromAtoB")
 		if err != nil {
 			fmt.Printf("Action Got error:%v\n", err)
 		}
 	} else {
 		//不交易
-		fmt.Printf(".-.-.- Pair [%s] Price: [%d] is between Lower:[%d] and Upper:[%d], starting swap from A -> B\n", Tcon.Name, dis.ReturnAmount, Tcon.Lower, Tcon.Upper)
+		fmt.Printf(".-.-.- Pair [%s] Price: [%s] is between Lower:[%s] and Upper:[%s], starting swap from A -> B\n", Tcon.Name, dis.ReturnAmount, Tcon.Lower, Tcon.Upper)
 
 	}
 	if len(tx) != 0 {
@@ -288,16 +333,22 @@ func (Tcon *TokenConfig) TokenSwap(strategy string) (string, error) {
 
 	//创建一个公用的函数
 	slipper := func(retValue *big.Int) *big.Int {
-		mul97 := big.NewInt(0).Mul(retValue, big.NewInt(97))
-		return big.NewInt(0).Div(mul97, big.NewInt(100))
+		mul97 := big.NewInt(0).Mul(retValue, big.NewInt(0).Sub(big.NewInt(100), big.NewInt(0).SetUint64(Tcon.Slipper)))
+
+		curSlipper := big.NewInt(0).Div(mul97, big.NewInt(100))
+		fmt.Printf("PairName:%v, current slipper is:%v\n", Tcon.Name, Tcon.Slipper)
+		return curSlipper
 	}
+
+	ethmin, err := Tcon.StringToBigInt(Tcon.TradeAddressReserveEth, 18)
+	if err != nil {
+		return "", err
+	}
+	fmt.Printf("Current min Blance of ETH for [%s] is [%v] \n", Tcon.Name, ethmin)
 	if strategy == "fromAtoB" {
 		//先重新获取到具体的数据，
 		//当明确知道哪一个交易方向的时候,才去看看余额情况，如果这个方向上的source余额为空则拒绝交易
 		// var sBanlance *big.Int
-
-		initAmount := big.NewInt(0)
-		initETHBalanceForToken.Int(initAmount)
 
 		if strings.EqualFold(Tcon.SourceAddress, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE") {
 			//source是eth
@@ -307,8 +358,8 @@ func (Tcon *TokenConfig) TokenSwap(strategy string) (string, error) {
 			}
 			//这个时候应该从eth 兑换成其他的币种，这个时候，
 
-			if ethBalance.Cmp(initAmount) > 0 {
-				canTradeEth := big.NewInt(0).Sub(ethBalance, initAmount)
+			if ethBalance.Cmp(ethmin) > 0 {
+				canTradeEth := big.NewInt(0).Sub(ethBalance, ethmin)
 				distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.SourceAddress), common.HexToAddress(Tcon.Destination), canTradeEth, big.NewInt(100), big.NewInt(0))
 				if err != nil {
 					fmt.Println("failed to GetExpectedReturn from 1inch, err:", err)
@@ -330,20 +381,31 @@ func (Tcon *TokenConfig) TokenSwap(strategy string) (string, error) {
 				fmt.Println("erc20 token balance is zero for address:", Tcon.TradeAddress, " current token address:", Tcon.SourceAddress)
 				return "", err
 			}
-			if sBanlanceErc20.Cmp(big.NewInt(0)) > 0 {
+
+			minReserveSource, err := Tcon.StringToBigInt(Tcon.TradeAddressReserveS, Tcon.PrecisionSource)
+			if err != nil {
+				fmt.Println("failed to get erc20 min token availabe in config file,tokenaddress:", Tcon.SourceAddress, " for address:", Tcon.TradeAddress, "ethsource:", minReserveSource)
+				return "", err
+			}
+			fmt.Printf("Current min Blance of source Reserve for [%s] is [%v] \n", Tcon.Name, minReserveSource)
+			if sBanlanceErc20.Cmp(minReserveSource) > 0 {
 				//最小的return效果可以用滑点的方法
-				distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.SourceAddress), common.HexToAddress(Tcon.Destination), sBanlanceErc20, big.NewInt(1), big.NewInt(0))
+				sBerc20Fortrade := big.NewInt(0).Sub(sBanlanceErc20, minReserveSource)
+				distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.SourceAddress), common.HexToAddress(Tcon.Destination), sBerc20Fortrade, big.NewInt(100), big.NewInt(0))
 				if err != nil {
 					fmt.Println("failed to GetExpectedReturn from 1inch, err:", err)
 					return "", err
 				}
-				tx, err = OneInchInstance.Swap(auth, common.HexToAddress(Tcon.SourceAddress), common.HexToAddress(Tcon.Destination), sBanlanceErc20, slipper(distri.ReturnAmount), distri.Distribution, big.NewInt(0))
+				log.Println("+++distri:", distri)
+				tx, err = OneInchInstance.Swap(auth, common.HexToAddress(Tcon.SourceAddress), common.HexToAddress(Tcon.Destination), sBerc20Fortrade, slipper(distri.ReturnAmount), distri.Distribution, big.NewInt(0))
 				if err != nil {
 					fmt.Println("got error:", err, " tx:", tx)
+					Tcon.Status = "disable"
 					return "", err
 				}
 			} else {
-				fmt.Printf("account :%s has no enough eth for swap balance:%s\n", Tcon.TradeAddress, sBanlanceErc20)
+				fmt.Printf("account :%s has no enough token for swap balance:%s\n", Tcon.TradeAddress, sBanlanceErc20)
+				return "", errors.New("has no enough token for swap balance")
 			}
 
 		}
@@ -353,8 +415,8 @@ func (Tcon *TokenConfig) TokenSwap(strategy string) (string, error) {
 		//当明确知道哪一个交易方向的时候,才去看看余额情况，如果这个方向上的source余额为空则拒绝交易
 		// var sBanlance *big.Int
 
-		initAmount := big.NewInt(0)
-		initETHBalanceForToken.Int(initAmount)
+		// initAmount := big.NewInt(0)
+		// initETHBalanceForToken.Int(initAmount)
 
 		if strings.EqualFold(Tcon.Destination, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE") {
 			//source是eth
@@ -364,8 +426,8 @@ func (Tcon *TokenConfig) TokenSwap(strategy string) (string, error) {
 			}
 			//这个时候应该从eth 兑换成其他的币种，这个时候，
 
-			if dBalanceEth.Cmp(initAmount) > 0 {
-				canTradeEth := big.NewInt(0).Sub(dBalanceEth, initAmount)
+			if dBalanceEth.Cmp(ethmin) > 0 {
+				canTradeEth := big.NewInt(0).Sub(dBalanceEth, ethmin)
 				fmt.Println("++++++ current sub initamount:", canTradeEth)
 				canTradeEth = big.NewInt(0).Sub(canTradeEth, big.NewInt(0).Mul(auth.GasPrice, big.NewInt(int64(auth.GasLimit))))
 				fmt.Println("++++++ current sub Gas:", canTradeEth)
@@ -385,6 +447,16 @@ func (Tcon *TokenConfig) TokenSwap(strategy string) (string, error) {
 
 				fmt.Println("........... distribution between swap", distri)
 
+				// data := DataWrapperForGasEstimate(Tcon.Destination, Tcon.SourceAddress, canTradeEth, slipper(distri.ReturnAmount), distri.Distribution, big.NewInt(0))
+				// forpoint := common.HexToAddress(Tcon.SourceAddress)
+				// gasLimittest, err := ForTokenClient.EstimateGas(context.Background(), ethereum.CallMsg{
+				// 	To:   &forpoint,
+				// 	Data: data,
+				// })
+				// fmt.Printf("how to get gas....%v\n", gasLimittest)
+				// if err != nil {
+				// 	log.Fatal(err)
+				// }
 				tx, err = OneInchInstance.Swap(auth, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), canTradeEth, slipper(distri.ReturnAmount), distri.Distribution, big.NewInt(0))
 				if err != nil {
 					fmt.Println("got error:", err, " tx:", tx)
@@ -392,7 +464,7 @@ func (Tcon *TokenConfig) TokenSwap(strategy string) (string, error) {
 				}
 			} else {
 				fmt.Printf("account :%s has no enough eth for swap balance:%s", Tcon.TradeAddress, dBalanceEth)
-				return "", errors.New("")
+				return "", errors.New("has no enough eth for swap balance")
 			}
 
 		} else {
@@ -400,20 +472,31 @@ func (Tcon *TokenConfig) TokenSwap(strategy string) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			if dBalanceErc20.Cmp(big.NewInt(0)) > 0 {
+			minReserveDestination, err := Tcon.StringToBigInt(Tcon.TradeAddressReserveD, Tcon.PrecisionDestination)
+			if err != nil {
+				fmt.Println("failed to get erc20 min token availabe in config file,tokenaddress:", Tcon.SourceAddress, " for address:", Tcon.TradeAddress, "minReserveDestination:", minReserveDestination)
+				return "", err
+			}
+			fmt.Printf("Current min Blance of destination Reserve for [%s] is [%v] \n", Tcon.Name, minReserveDestination)
+
+			if dBalanceErc20.Cmp(minReserveDestination) > 0 {
 				//最小的return效果可以用滑点的方法
-				distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), dBalanceErc20, big.NewInt(1), big.NewInt(0))
+				subResult := big.NewInt(0).Sub(dBalanceErc20, minReserveDestination)
+				distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), subResult, big.NewInt(100), big.NewInt(0))
 				if err != nil {
 					fmt.Println("failed to GetExpectedReturn from 1inch, err:", err)
 					return "", err
 				}
-				tx, err = OneInchInstance.Swap(auth, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), dBalanceErc20, slipper(distri.ReturnAmount), distri.Distribution, big.NewInt(0))
+				log.Println("+++distri:", distri) //slipper(distri.ReturnAmount)
+				tx, err = OneInchInstance.Swap(auth, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), subResult, slipper(distri.ReturnAmount), distri.Distribution, big.NewInt(0))
 				if err != nil {
 					fmt.Println("got error:", err, " tx:", tx)
+					Tcon.Status = "disable"
 					return "", err
 				}
 			} else {
-				fmt.Printf("account :%s has no enough eth for swap balance:%d\n", Tcon.TradeAddress, dBalanceErc20)
+				fmt.Printf("account :%s has no enough tokens for swap balance:%d\n", Tcon.TradeAddress, dBalanceErc20)
+				return "", errors.New("has no enough tokens for swap balance")
 			}
 
 		}
@@ -464,8 +547,8 @@ func (Tcon *TokenConfig) BuildAuth() (*bind.TransactOpts, error) {
 
 	//todo 这里是要做为需要交易多少eth 或者erc20的代币来制定的。
 	// auth.Value = big.NewInt(1000001) // in wei
-	auth.GasLimit = uint64(3000000) // in unit  也同样需要乘以一个倍率
-
+	// auth.GasLimit = uint64(3000000) // in unit  也同样需要乘以一个倍率
+	auth.GasLimit = Tcon.GasLimit
 	//13倍的gas费用 gas price调整为主网的130%
 	GasPrice13 := big.NewInt(0).Mul(gasPrice, big.NewInt(13))     //是否需要乘上一个倍率
 	auth.GasPrice = big.NewInt(0).Div(GasPrice13, big.NewInt(10)) //是否需要乘上一个倍率

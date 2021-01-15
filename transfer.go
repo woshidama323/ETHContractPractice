@@ -206,37 +206,56 @@ func approveForErc20(client *ethclient.Client, tokenContract, sourceAddress, toA
 
 //DataWrapperForGasEstimate 评估gaslimit
 func DataWrapperForGasEstimate(source, destination string, amount, percentage *big.Int, distri []*big.Int, flag *big.Int) []byte {
-	getExpectedReturnFnSignature := []byte("Swap(address,address,uint256,uint256,uint256[],uint256)")
-
+	// getExpectedReturnFnSignature := []byte("Swap(address,address,uint256,uint256,uint256[],uint256)")
+	getExpectedReturnFnSignature := []byte("transfer(address,uint256)")
 	// hash := sha3.NewKeccak256()
 	hash := sha3.NewLegacyKeccak256()
 	hash.Write(getExpectedReturnFnSignature)
 	methodID := hash.Sum(nil)[:4]
 	fmt.Println(hexutil.Encode(methodID)) // 0xa9059cbb
 
-	paddedSourceAddress := common.LeftPadBytes(common.HexToAddress(source).Bytes(), 32)
-	fmt.Println(hexutil.Encode(paddedSourceAddress)) // 0x0000000000000000000000004592d8f8d7b001e72cb26a73e4fa1806a51ac79d
-
-	addedDestinationAddress := common.LeftPadBytes(common.HexToAddress(destination).Bytes(), 32)
-	fmt.Println(hexutil.Encode(addedDestinationAddress)) // 0x0000000000000000000000004592d8f8d7b001e72cb26a73e4fa1806a51ac79d
-
-	paddedAmount := common.LeftPadBytes(amount.Bytes(), 32)
+	paddedAddress := common.LeftPadBytes(common.HexToAddress(source).Bytes(), 32)
+	fmt.Println(hexutil.Encode(paddedAddress))
+	amount1 := new(big.Int)
+	amount1.SetString("1000000000000000000000", 10) // 1000 tokens
+	paddedAmount := common.LeftPadBytes(amount1.Bytes(), 32)
 	fmt.Println(hexutil.Encode(paddedAmount)) // 0x00000000000000000000000000000000000000000000003635c9adc5dea00000
 
-	paddedPercentage := common.LeftPadBytes(percentage.Bytes(), 32)
-	fmt.Println(hexutil.Encode(paddedPercentage)) // 0x00000000000000000000000000000000000000000000003635c9adc5dea00000
+	// paddedSourceAddress := common.LeftPadBytes(common.HexToAddress(source).Bytes(), 32)
+	// fmt.Println(hexutil.Encode(paddedSourceAddress)) // 0x0000000000000000000000004592d8f8d7b001e72cb26a73e4fa1806a51ac79d
 
-	paddedFlag := common.LeftPadBytes(flag.Bytes(), 32)
-	fmt.Println(hexutil.Encode(paddedFlag)) // 0x00000000000000000000000000000000000000000000003635c9adc5dea00000
+	// addedDestinationAddress := common.LeftPadBytes(common.HexToAddress(destination).Bytes(), 32)
+	// fmt.Println(hexutil.Encode(addedDestinationAddress)) // 0x0000000000000000000000004592d8f8d7b001e72cb26a73e4fa1806a51ac79d
 
+	// paddedAmount := common.LeftPadBytes(amount.Bytes(), 32)
+	// fmt.Println(hexutil.Encode(paddedAmount)) // 0x00000000000000000000000000000000000000000000003635c9adc5dea00000
+
+	// paddedPercentage := common.LeftPadBytes(percentage.Bytes(), 32)
+	// fmt.Println(hexutil.Encode(paddedPercentage)) // 0x00000000000000000000000000000000000000000000003635c9adc5dea00000
+
+	// var fordistri []byte
+	// for _, dis := range distri {
+	// 	disbytes := common.LeftPadBytes(dis.Bytes(), 32)
+	// 	fordistri = append(fordistri, disbytes...)
+	// }
+	// // paddedDist := common.LeftPadBytes(distri.Bytes(), 32)
+	// // fmt.Println(hexutil.Encode(paddedPercentage)) // 0x00000000000000000000000000000000000000000000003635c9adc5dea00000
+
+	// paddedFlag := common.LeftPadBytes(flag.Bytes(), 32)
+	// fmt.Println(hexutil.Encode(paddedFlag)) // 0x00000000000000000000000000000000000000000000003635c9adc5dea00000
+
+	// var data []byte
+	// data = append(data, methodID...)
+	// data = append(data, paddedSourceAddress...)
+	// data = append(data, addedDestinationAddress...)
+	// data = append(data, paddedAmount...)
+	// data = append(data, paddedPercentage...)
+	// data = append(data, fordistri...)
+	// data = append(data, paddedFlag...)
 	var data []byte
 	data = append(data, methodID...)
-	data = append(data, paddedSourceAddress...)
-	data = append(data, addedDestinationAddress...)
+	data = append(data, paddedAddress...)
 	data = append(data, paddedAmount...)
-	data = append(data, paddedPercentage...)
-	data = append(data, paddedFlag...)
-
 	return data
 
 }

@@ -81,6 +81,8 @@ func main() {
 					if value.Status == "disable" {
 						fmt.Printf(WarningColor, "Warn ")
 						fmt.Printf("Pair:%s has been disabled\n", value.Name)
+						time.Sleep(1 * time.Second)
+						continue
 					}
 					// value.MinReserverEthAmount()
 					result, err := value.PriceMonitor()
@@ -103,6 +105,8 @@ func main() {
 
 					value.Test()
 
+					// value.MinReserverSAmount()
+
 					//判断价格是否为0
 					if result.ReturnAmount.Cmp(big.NewInt(0)) <= 0 {
 						fmt.Printf(ErrorColor, "Error:")
@@ -112,6 +116,7 @@ func main() {
 					fmt.Println("................start Action................")
 					value.Action(result)
 
+					TInfos.TConfig[index].Status = value.Status
 					//先查余额
 					//扣除必用项之后，还剩多少余额，然后全部交易掉
 					//利用剩余余额计算可以收获多少对应的代币  进一步计算当前的价格
