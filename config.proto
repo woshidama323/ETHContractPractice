@@ -8,4 +8,5 @@ message Message {
 
 service ConfigUpdate{
   rpc ReloadConfig(Message) returns (Message) {}
+  rpc ApprovalToOneSplitAudit(Message) returns (Message) {}
 }

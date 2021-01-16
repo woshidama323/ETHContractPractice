@@ -130,16 +130,31 @@ func main() {
 		}
 	}()
 
-	ChangeChannel := make(chan bool, 1)
-	go GrpcServer(ChangeChannel)
+	ChangeChannel := make(chan string, 1)
+	ResponseChannel := make(chan string, 1)
+	go GrpcServer(ChangeChannel, ResponseChannel)
 
 	for {
 		select {
-		case <-ChangeChannel:
-			if err := TInfos.LoadConfig(); err != nil {
-				fmt.Println("failed to load config from default file:", err)
-				continue
+		case task := <-ChangeChannel:
+			if task == "updateconfig" {
+				if err := TInfos.LoadConfig(); err != nil {
+					fmt.Println("failed to load config from default file:", err)
+					ResponseChannel <- err.Error()
+					continue
+				}
+				ResponseChannel <- "success"
+			} else if task == "approve" {
+				for _, token := range TInfos.TConfig {
+					if tx, err := token.ApproveForOneSplitAudit(token.SourceAddress); err != nil {
+						ResponseChannel <- err.Error()
+					} else {
+						ResponseChannel <- tx
+					}
+
+				}
 			}
+
 		}
 	}
 

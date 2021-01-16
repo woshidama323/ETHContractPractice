@@ -73,6 +73,9 @@ type TokenConfig struct {
 
 	//gaslimit
 	GasLimit uint64 `json:"gaslimit"`
+
+	//gasprice倍率
+	GasPriceTimes uint64 `json:"gaspricetimes"`
 }
 
 //StringToBigInt tradeaddress保留最小的source币种余额
@@ -550,13 +553,47 @@ func (Tcon *TokenConfig) BuildAuth() (*bind.TransactOpts, error) {
 	// auth.GasLimit = uint64(3000000) // in unit  也同样需要乘以一个倍率
 	auth.GasLimit = Tcon.GasLimit
 	//13倍的gas费用 gas price调整为主网的130%
-	GasPrice13 := big.NewInt(0).Mul(gasPrice, big.NewInt(13))     //是否需要乘上一个倍率
-	auth.GasPrice = big.NewInt(0).Div(GasPrice13, big.NewInt(10)) //是否需要乘上一个倍率
+	adjustPrice := gasPrice
+	if Tcon.GasPriceTimes > 0 {
 
+		PriceTimes := big.NewInt(0).Add(big.NewInt(100), big.NewInt(0).SetUint64(Tcon.GasPriceTimes))
+		adjustPriceTimes := big.NewInt(0).Mul(gasPrice, PriceTimes)
+		adjustPrice = big.NewInt(0).Div(adjustPriceTimes, big.NewInt(100))
+		fmt.Println("Gas times is:", Tcon.GasPriceTimes, " origin gas price:", gasPrice, " after adjust:", adjustPrice)
+	}
+	auth.GasPrice = adjustPrice
 	GasUsedSum := big.NewInt(0).Mul(big.NewInt(0).SetInt64(300000), gasPrice)
 
 	fmt.Printf("Get gas price:%s, gas limit:%d, gas total used:%d\n", auth.GasPrice, auth.GasLimit, GasUsedSum)
 	return auth, nil
+}
+
+//ApproveForOneSplitAudit approval 一个地址
+func (Tcon *TokenConfig) ApproveForOneSplitAudit(tokenContract string) (string, error) {
+
+	sourceInstance, err := NewErc20token(common.HexToAddress(tokenContract), ForTokenClient)
+	if err != nil {
+		fmt.Println("failed to get instance of erc20 token err:", err)
+		return "", errors.New("failed to get instance of erc20 token")
+	}
+
+	auth, err := Tcon.BuildAuth()
+	if err != nil {
+		return "", err
+	}
+
+	tx, err := sourceInstance.Approve(auth, common.HexToAddress(OneSplitMainnetAddress), big.NewInt(1e18))
+	if err != nil {
+		fmt.Println("failed to Approve for token:", tokenContract, " to spender:", OneSplitMainnetAddress, " err:", err)
+		return "", errors.New("failed to Approve for onesplitaudit")
+	}
+	if tx != nil {
+
+		Tcon.TxInfos = append(Tcon.TxInfos, tx.Hash().String())
+		return tx.Hash().String(), nil
+	}
+	return "", errors.New("tx is nil")
+
 }
 
 // =======  总体token的策略 =========
