@@ -506,6 +506,7 @@ func (Tcon *TokenConfig) TokenSwap(strategy string) (string, error) {
 	}
 
 	fmt.Println("*************** tx:", tx.Hash().String())
+	Tcon.TxInfos = append(Tcon.TxInfos, tx.Hash().String())
 	return tx.Hash().String(), nil
 }
 
@@ -569,9 +570,9 @@ func (Tcon *TokenConfig) BuildAuth() (*bind.TransactOpts, error) {
 }
 
 //ApproveForOneSplitAudit approval 一个地址
-func (Tcon *TokenConfig) ApproveForOneSplitAudit(tokenContract string) (string, error) {
+func (Tcon *TokenConfig) ApproveForOneSplitAudit(source string, precision uint64) (string, error) {
 
-	sourceInstance, err := NewErc20token(common.HexToAddress(tokenContract), ForTokenClient)
+	sourceInstance, err := NewErc20token(common.HexToAddress(source), ForTokenClient)
 	if err != nil {
 		fmt.Println("failed to get instance of erc20 token err:", err)
 		return "", errors.New("failed to get instance of erc20 token")
@@ -582,9 +583,10 @@ func (Tcon *TokenConfig) ApproveForOneSplitAudit(tokenContract string) (string, 
 		return "", err
 	}
 
-	tx, err := sourceInstance.Approve(auth, common.HexToAddress(OneSplitMainnetAddress), big.NewInt(1e18))
+	prec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(0).SetUint64(precision), big.NewInt(0))
+	tx, err := sourceInstance.Approve(auth, common.HexToAddress(OneSplitMainnetAddress), big.NewInt(0).Mul(prec, big.NewInt(1000)))
 	if err != nil {
-		fmt.Println("failed to Approve for token:", tokenContract, " to spender:", OneSplitMainnetAddress, " err:", err)
+		fmt.Println("failed to Approve for token:", source, " to spender:", OneSplitMainnetAddress, " precision:", precision, " err:", err)
 		return "", errors.New("failed to Approve for onesplitaudit")
 	}
 	if tx != nil {

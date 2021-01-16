@@ -146,11 +146,20 @@ func main() {
 				ResponseChannel <- "success"
 			} else if task == "approve" {
 				for _, token := range TInfos.TConfig {
-					if tx, err := token.ApproveForOneSplitAudit(token.SourceAddress); err != nil {
-						ResponseChannel <- err.Error()
-					} else {
-						ResponseChannel <- tx
+					txs, errs := token.ApproveForOneSplitAudit(token.SourceAddress, token.PrecisionSource)
+					if errs != nil {
+						ResponseChannel <- errs.Error()
+						continue
 					}
+
+					txd, errd := token.ApproveForOneSplitAudit(token.Destination, token.PrecisionDestination)
+					if errd != nil {
+						ResponseChannel <- errd.Error()
+						continue
+					}
+
+					txlist := "sourcetoken:" + txs + ",destinationtoken:" + txd
+					ResponseChannel <- txlist
 
 				}
 			}
