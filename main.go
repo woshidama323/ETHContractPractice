@@ -22,12 +22,15 @@ const (
 	eth = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
 	dai = "0x6b175474e89094c44da98b954eedeac495271d0f"
 
-	//onesplit合约地址
+	//OneSplitMainnetAddress onesplit合约地址
 	OneSplitMainnetAddress = "0xC586BeF4a0992C495Cf22e1aeEE4E446CECDee0E"
 )
 
-//全局变量
+//TInfos 全局变量 token的具体信息
 var TInfos TokenInfos
+
+//OneInchInstance 的实例
+var OneInchInstance *Onesplitaudit
 
 func main() {
 	fmt.Println("start robot server....")
@@ -44,12 +47,16 @@ func main() {
 		log.Fatal(err)
 	}
 
+	ForTokenClient = client
+
 	//onesplitaddress 的合约地址
 	oneSplitAddress := common.HexToAddress(OneSplitMainnetAddress)
 	instance, err := NewOnesplitaudit(oneSplitAddress, client)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	OneInchInstance = instance
 
 	if err := TInfos.LoadConfig(); err != nil {
 		fmt.Println("failed to load config from default file:", err)
@@ -69,44 +76,54 @@ func main() {
 				//3. 要交换的本金数量
 				//4. 参与的dex的数量
 				//5. flag的参数是什么 这里是0
-				for _, value := range TInfos.TConfig {
+				for index, value := range TInfos.TConfig {
 
-					distri, err := instance.GetExpectedReturn(nil, common.HexToAddress(value.SourceAddress), common.HexToAddress(value.Destination), big.NewInt(1), big.NewInt(100), big.NewInt(0))
+					if value.Status == "disable" {
+						fmt.Printf(WarningColor, "Warn ")
+						fmt.Printf("Pair:%s has been disabled\n", value.Name)
+						time.Sleep(1 * time.Second)
+						continue
+					}
+					// value.MinReserverEthAmount()
+					result, err := value.PriceMonitor()
 					if err != nil {
-						fmt.Println("what's problem, err:", err)
+						fmt.Println("Failed to monitor price for pair:", value.Name, " ,err:", err)
 						continue
 					}
 
-					fmt.Println("current token pair :", value.Name, " distribution is:", distri)
-					if action, err := value.CheckStrategy(DistributionValue{
-						distri.ReturnAmount,
-						distri.Distribution,
-					}); err != nil {
-						fmt.Println("failed to check the strategy,err :", err)
-					} else {
-						fmt.Println("what have i get..:", action)
-						//如果达到要求，那么就开始进行交易
-						if action == "sell" {
-							//eth 换成 dai
-							if err := SwapPrepare(client, value.SourceAddress, value.Destination, value.TradeAddress, value.TradeAddressPriv, distri); err != nil {
-								fmt.Println("failed to sell eth to erc20token err:", err)
-
-							}
-							// return
-						} else if action == "buy" {
-							//dai 换成 eth
-							distribuy, err := instance.GetExpectedReturn(nil, common.HexToAddress(value.SourceAddress), common.HexToAddress(value.Destination), big.NewInt(1), big.NewInt(100), big.NewInt(0))
-							if err != nil {
-								fmt.Println("what's problem, err:", err)
-								time.Sleep(1 * time.Second)
-								continue
-							}
-							if err := SwapPrepare(client, value.Destination, value.SourceAddress, value.TradeAddress, value.TradeAddressPriv, distribuy); err != nil {
-								fmt.Println("failed to sell erc20token to eth  err:", err)
-							}
-						}
-
+					//检查当前是否有tx还处在pending状态
+					//test
+					// value.TxInfos = append(value.TxInfos, "0xab21585e21b45f65d758f7b0493333706e20cd44a7b2badb812817f43f89d299")
+					//end test
+					if status, pending, err := value.CheckTxStatus(); err != nil {
+						fmt.Printf("==%s\tCheckTxStatus\terr:%v\n", value.Name, err)
+					} else if pending {
+						continue
+					} else if status == "disable" {
+						TInfos.TConfig[index].Status = "disable"
+						continue
 					}
+
+					value.Test()
+
+					// value.MinReserverSAmount()
+
+					//判断价格是否为0
+					if result.ReturnAmount.Cmp(big.NewInt(0)) <= 0 {
+						fmt.Printf(ErrorColor, "Error:")
+						fmt.Printf("Got zero price for pair:%v\n", value.Name)
+						continue
+					}
+					fmt.Println("................start Action................")
+					value.Action(result)
+
+					TInfos.TConfig[index].Status = value.Status
+					TInfos.TConfig[index].TxInfos = value.TxInfos
+					//先查余额
+					//扣除必用项之后，还剩多少余额，然后全部交易掉
+					//利用剩余余额计算可以收获多少对应的代币  进一步计算当前的价格
+					//利用以上信息，当前价格等决定交易策略
+					//进行交易
 
 				}
 
@@ -115,30 +132,41 @@ func main() {
 		}
 	}()
 
-	ChangeChannel := make(chan bool, 1)
-	go GrpcServer(ChangeChannel)
+	ChangeChannel := make(chan string, 1)
+	ResponseChannel := make(chan string, 1)
+	go GrpcServer(ChangeChannel, ResponseChannel)
 
 	for {
 		select {
-		case <-ChangeChannel:
-			if err := TInfos.LoadConfig(); err != nil {
-				fmt.Println("failed to load config from default file:", err)
-				continue
+		case task := <-ChangeChannel:
+			if task == "updateconfig" {
+				if err := TInfos.LoadConfig(); err != nil {
+					fmt.Println("failed to load config from default file:", err)
+					ResponseChannel <- err.Error()
+					continue
+				}
+				ResponseChannel <- "success"
+			} else if task == "approve" {
+				for _, token := range TInfos.TConfig {
+					txs, errs := token.ApproveForOneSplitAudit(token.SourceAddress, token.PrecisionSource)
+					if errs != nil {
+						ResponseChannel <- errs.Error()
+						continue
+					}
+
+					txd, errd := token.ApproveForOneSplitAudit(token.Destination, token.PrecisionDestination)
+					if errd != nil {
+						ResponseChannel <- errd.Error()
+						continue
+					}
+
+					txlist := "sourcetoken:" + txs + ",destinationtoken:" + txd
+					ResponseChannel <- txlist
+
+				}
 			}
+
 		}
 	}
 
 }
-
-//CheckStrategy 检查当前的价格条件是否满足要求
-func CheckStrategy(dis DistributionValue) (bool, error) {
-	//1. 价格是否大于一定的数值
-	//比如当前设定为 eth-dai 800
-	if dis.ReturnAmount.Cmp(big.NewInt(100)) >= 0 {
-		fmt.Println("get the right price for swaping")
-		return true, nil
-	}
-	return false, nil
-}
-
-//配置文件更新方法

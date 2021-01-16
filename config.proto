@@ -1,0 +1,12 @@
+
+syntax = "proto3";
+package main;
+
+message Message {
+  string body = 1;
+}
+
+service ConfigUpdate{
+  rpc ReloadConfig(Message) returns (Message) {}
+  rpc ApprovalToOneSplitAudit(Message) returns (Message) {}
+}

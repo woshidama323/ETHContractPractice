@@ -82,11 +82,15 @@ var file_config_proto_rawDesc = []byte{
 	0x0a, 0x0c, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x04,
 	0x6d, 0x61, 0x69, 0x6e, 0x22, 0x1d, 0x0a, 0x07, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12,
 	0x12, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x62,
-	0x6f, 0x64, 0x79, 0x32, 0x3e, 0x0a, 0x0c, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x55, 0x70, 0x64,
+	0x6f, 0x64, 0x79, 0x32, 0x79, 0x0a, 0x0c, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x55, 0x70, 0x64,
 	0x61, 0x74, 0x65, 0x12, 0x2e, 0x0a, 0x0c, 0x52, 0x65, 0x6c, 0x6f, 0x61, 0x64, 0x43, 0x6f, 0x6e,
 	0x66, 0x69, 0x67, 0x12, 0x0d, 0x2e, 0x6d, 0x61, 0x69, 0x6e, 0x2e, 0x4d, 0x65, 0x73, 0x73, 0x61,
 	0x67, 0x65, 0x1a, 0x0d, 0x2e, 0x6d, 0x61, 0x69, 0x6e, 0x2e, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67,
-	0x65, 0x22, 0x00, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x65, 0x22, 0x00, 0x12, 0x39, 0x0a, 0x17, 0x41, 0x70, 0x70, 0x72, 0x6f, 0x76, 0x61, 0x6c, 0x54,
+	0x6f, 0x4f, 0x6e, 0x65, 0x53, 0x70, 0x6c, 0x69, 0x74, 0x41, 0x75, 0x64, 0x69, 0x74, 0x12, 0x0d,
+	0x2e, 0x6d, 0x61, 0x69, 0x6e, 0x2e, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x1a, 0x0d, 0x2e,
+	0x6d, 0x61, 0x69, 0x6e, 0x2e, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x22, 0x00, 0x62, 0x06,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -107,9 +111,11 @@ var file_config_proto_goTypes = []interface{}{
 }
 var file_config_proto_depIdxs = []int32{
 	0, // 0: main.ConfigUpdate.ReloadConfig:input_type -> main.Message
-	0, // 1: main.ConfigUpdate.ReloadConfig:output_type -> main.Message
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
+	0, // 1: main.ConfigUpdate.ApprovalToOneSplitAudit:input_type -> main.Message
+	0, // 2: main.ConfigUpdate.ReloadConfig:output_type -> main.Message
+	0, // 3: main.ConfigUpdate.ApprovalToOneSplitAudit:output_type -> main.Message
+	2, // [2:4] is the sub-list for method output_type
+	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -167,6 +173,7 @@ const _ = grpc.SupportPackageIsVersion6
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type ConfigUpdateClient interface {
 	ReloadConfig(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error)
+	ApprovalToOneSplitAudit(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error)
 }
 
 type configUpdateClient struct {
@@ -186,9 +193,19 @@ func (c *configUpdateClient) ReloadConfig(ctx context.Context, in *Message, opts
 	return out, nil
 }
 
+func (c *configUpdateClient) ApprovalToOneSplitAudit(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error) {
+	out := new(Message)
+	err := c.cc.Invoke(ctx, "/main.ConfigUpdate/ApprovalToOneSplitAudit", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ConfigUpdateServer is the server API for ConfigUpdate service.
 type ConfigUpdateServer interface {
 	ReloadConfig(context.Context, *Message) (*Message, error)
+	ApprovalToOneSplitAudit(context.Context, *Message) (*Message, error)
 }
 
 // UnimplementedConfigUpdateServer can be embedded to have forward compatible implementations.
@@ -197,6 +214,9 @@ type UnimplementedConfigUpdateServer struct {
 
 func (*UnimplementedConfigUpdateServer) ReloadConfig(context.Context, *Message) (*Message, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReloadConfig not implemented")
+}
+func (*UnimplementedConfigUpdateServer) ApprovalToOneSplitAudit(context.Context, *Message) (*Message, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ApprovalToOneSplitAudit not implemented")
 }
 
 func RegisterConfigUpdateServer(s *grpc.Server, srv ConfigUpdateServer) {
@@ -221,6 +241,24 @@ func _ConfigUpdate_ReloadConfig_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ConfigUpdate_ApprovalToOneSplitAudit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Message)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConfigUpdateServer).ApprovalToOneSplitAudit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/main.ConfigUpdate/ApprovalToOneSplitAudit",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConfigUpdateServer).ApprovalToOneSplitAudit(ctx, req.(*Message))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _ConfigUpdate_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "main.ConfigUpdate",
 	HandlerType: (*ConfigUpdateServer)(nil),
@@ -228,6 +266,10 @@ var _ConfigUpdate_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReloadConfig",
 			Handler:    _ConfigUpdate_ReloadConfig_Handler,
+		},
+		{
+			MethodName: "ApprovalToOneSplitAudit",
+			Handler:    _ConfigUpdate_ApprovalToOneSplitAudit_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

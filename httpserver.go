@@ -9,7 +9,7 @@ import (
 )
 
 //GrpcServer 服务初始化
-func GrpcServer(change chan bool) {
+func GrpcServer(change, response chan string) {
 	lis, err := net.Listen("tcp", ":9000")
 	if err != nil {
 		log.Fatalf("failed to listen for grpc server,err:", err)
@@ -18,7 +18,8 @@ func GrpcServer(change chan bool) {
 	grpcServer := grpc.NewServer()
 
 	s := config.Server{
-		Change: change,
+		Change:   change,
+		Response: response,
 	}
 	config.RegisterConfigUpdateServer(grpcServer, &s)
 

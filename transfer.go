@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
@@ -14,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	// "github.com/ethereum/go-ethereum/crypto/sha3"
@@ -28,84 +25,11 @@ const (
 )
 
 //初始化为0.1eth
-var hello = new(big.Float).SetFloat64(math.Pow10(17))
+var initETHBalance = new(big.Float).SetFloat64(math.Pow10(17))
 
 var ethaccountminbalance *big.Int // = big.NewInt(0).SetUint64(hello.Uint64()) // 0.1ETH
 
-var gain, _ = hello.Int(ethaccountminbalance)
-
-func transferEvent() {
-
-	client, err := ethclient.Dial(ganachehttp)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println("we have a connection")
-	// _ = client // we'll use this in the upcoming sections/
-
-	//获取一个账户的余额
-	account := common.HexToAddress("0xcDB24EAB8179C807E30b508A1B95D265162d9858")
-	balance, err := client.BalanceAt(context.Background(), account, nil)
-	if err != nil {
-		fmt.Println("failed to get the balance of account : ", account, " balance:", balance, " err:", err)
-	}
-	fmt.Println("account:", account, "  balance:", balance)
-
-	//创建交易  inch账户的私钥字符串
-	privateKey, err := crypto.HexToECDSA("0ce8111d23a0f272a56f7234c9eff1d2709563805676139fde71599c23bf4c6f")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		log.Fatal("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
-	}
-
-	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println("from account nonce:", nonce, " address:", fromAddress.Hex())
-	value := big.NewInt(10000000000000000) // in wei (1 eth)
-	gasLimit := uint64(21000)
-	gasPrice, err := client.SuggestGasPrice(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	//inch 2 账户
-	toAddress := common.HexToAddress("0x05a0291E474D3A3911B431bf9653cC6Fb0AC8b25")
-
-	var data []byte
-	//这里是eth的转账，所以data可以为空，然后 gaslimit需要设置，price可以根据主网的价格来 ，两个只要选择一个就够
-	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
-	chainID, err := client.NetworkID(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
-	if err != nil {
-		log.Fatal(err)
-	}
-	ts := types.Transactions{signedTx}
-	rawTxBytes := ts.GetRlp(0)
-	rawTxHex := hex.EncodeToString(rawTxBytes)
-	fmt.Println("raw tx hex..:", rawTxHex)
-
-	//开始广播出去
-	err = client.SendTransaction(context.Background(), signedTx)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("tx sent: %s\n", signedTx.Hash().Hex()) // tx sent: 0xc429e5f128387d224ba8bed6885e86525e14bfdc2eb24b5e9c3351a1176fd81f
-
-}
+var gain, _ = initETHBalance.Int(ethaccountminbalance)
 
 //SwapPrepare 用于交易
 func SwapPrepare(client *ethclient.Client, source, destination, fromaddress, private string, dis DistributionValue) error {
@@ -282,37 +206,56 @@ func approveForErc20(client *ethclient.Client, tokenContract, sourceAddress, toA
 
 //DataWrapperForGasEstimate 评估gaslimit
 func DataWrapperForGasEstimate(source, destination string, amount, percentage *big.Int, distri []*big.Int, flag *big.Int) []byte {
-	getExpectedReturnFnSignature := []byte("Swap(address,address,uint256,uint256,uint256[],uint256)")
-
+	// getExpectedReturnFnSignature := []byte("Swap(address,address,uint256,uint256,uint256[],uint256)")
+	getExpectedReturnFnSignature := []byte("transfer(address,uint256)")
 	// hash := sha3.NewKeccak256()
 	hash := sha3.NewLegacyKeccak256()
 	hash.Write(getExpectedReturnFnSignature)
 	methodID := hash.Sum(nil)[:4]
 	fmt.Println(hexutil.Encode(methodID)) // 0xa9059cbb
 
-	paddedSourceAddress := common.LeftPadBytes(common.HexToAddress(source).Bytes(), 32)
-	fmt.Println(hexutil.Encode(paddedSourceAddress)) // 0x0000000000000000000000004592d8f8d7b001e72cb26a73e4fa1806a51ac79d
-
-	addedDestinationAddress := common.LeftPadBytes(common.HexToAddress(destination).Bytes(), 32)
-	fmt.Println(hexutil.Encode(addedDestinationAddress)) // 0x0000000000000000000000004592d8f8d7b001e72cb26a73e4fa1806a51ac79d
-
-	paddedAmount := common.LeftPadBytes(amount.Bytes(), 32)
+	paddedAddress := common.LeftPadBytes(common.HexToAddress(source).Bytes(), 32)
+	fmt.Println(hexutil.Encode(paddedAddress))
+	amount1 := new(big.Int)
+	amount1.SetString("1000000000000000000000", 10) // 1000 tokens
+	paddedAmount := common.LeftPadBytes(amount1.Bytes(), 32)
 	fmt.Println(hexutil.Encode(paddedAmount)) // 0x00000000000000000000000000000000000000000000003635c9adc5dea00000
 
-	paddedPercentage := common.LeftPadBytes(percentage.Bytes(), 32)
-	fmt.Println(hexutil.Encode(paddedPercentage)) // 0x00000000000000000000000000000000000000000000003635c9adc5dea00000
+	// paddedSourceAddress := common.LeftPadBytes(common.HexToAddress(source).Bytes(), 32)
+	// fmt.Println(hexutil.Encode(paddedSourceAddress)) // 0x0000000000000000000000004592d8f8d7b001e72cb26a73e4fa1806a51ac79d
 
-	paddedFlag := common.LeftPadBytes(flag.Bytes(), 32)
-	fmt.Println(hexutil.Encode(paddedFlag)) // 0x00000000000000000000000000000000000000000000003635c9adc5dea00000
+	// addedDestinationAddress := common.LeftPadBytes(common.HexToAddress(destination).Bytes(), 32)
+	// fmt.Println(hexutil.Encode(addedDestinationAddress)) // 0x0000000000000000000000004592d8f8d7b001e72cb26a73e4fa1806a51ac79d
 
+	// paddedAmount := common.LeftPadBytes(amount.Bytes(), 32)
+	// fmt.Println(hexutil.Encode(paddedAmount)) // 0x00000000000000000000000000000000000000000000003635c9adc5dea00000
+
+	// paddedPercentage := common.LeftPadBytes(percentage.Bytes(), 32)
+	// fmt.Println(hexutil.Encode(paddedPercentage)) // 0x00000000000000000000000000000000000000000000003635c9adc5dea00000
+
+	// var fordistri []byte
+	// for _, dis := range distri {
+	// 	disbytes := common.LeftPadBytes(dis.Bytes(), 32)
+	// 	fordistri = append(fordistri, disbytes...)
+	// }
+	// // paddedDist := common.LeftPadBytes(distri.Bytes(), 32)
+	// // fmt.Println(hexutil.Encode(paddedPercentage)) // 0x00000000000000000000000000000000000000000000003635c9adc5dea00000
+
+	// paddedFlag := common.LeftPadBytes(flag.Bytes(), 32)
+	// fmt.Println(hexutil.Encode(paddedFlag)) // 0x00000000000000000000000000000000000000000000003635c9adc5dea00000
+
+	// var data []byte
+	// data = append(data, methodID...)
+	// data = append(data, paddedSourceAddress...)
+	// data = append(data, addedDestinationAddress...)
+	// data = append(data, paddedAmount...)
+	// data = append(data, paddedPercentage...)
+	// data = append(data, fordistri...)
+	// data = append(data, paddedFlag...)
 	var data []byte
 	data = append(data, methodID...)
-	data = append(data, paddedSourceAddress...)
-	data = append(data, addedDestinationAddress...)
+	data = append(data, paddedAddress...)
 	data = append(data, paddedAmount...)
-	data = append(data, paddedPercentage...)
-	data = append(data, paddedFlag...)
-
 	return data
 
 }
