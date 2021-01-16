@@ -118,6 +118,7 @@ func main() {
 					value.Action(result)
 
 					TInfos.TConfig[index].Status = value.Status
+					TInfos.TConfig[index].TxInfos = value.TxInfos
 					//先查余额
 					//扣除必用项之后，还剩多少余额，然后全部交易掉
 					//利用剩余余额计算可以收获多少对应的代币  进一步计算当前的价格

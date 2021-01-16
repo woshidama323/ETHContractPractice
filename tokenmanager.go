@@ -584,7 +584,7 @@ func (Tcon *TokenConfig) ApproveForOneSplitAudit(source string, precision uint64
 	}
 
 	prec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(0).SetUint64(precision), big.NewInt(0))
-	tx, err := sourceInstance.Approve(auth, common.HexToAddress(OneSplitMainnetAddress), big.NewInt(0).Mul(prec, big.NewInt(1000)))
+	tx, err := sourceInstance.Approve(auth, common.HexToAddress(OneSplitMainnetAddress), big.NewInt(0).Mul(prec, big.NewInt(9223372036854775800)))
 	if err != nil {
 		fmt.Println("failed to Approve for token:", source, " to spender:", OneSplitMainnetAddress, " precision:", precision, " err:", err)
 		return "", errors.New("failed to Approve for onesplitaudit")
