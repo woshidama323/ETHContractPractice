@@ -101,6 +101,7 @@ func main() {
 						continue
 					} else if status == "disable" {
 						TInfos.TConfig[index].Status = "disable"
+						continue
 					}
 
 					value.Test()
