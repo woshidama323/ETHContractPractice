@@ -16,7 +16,7 @@
             "destinationaddress" : "0xa7ED29B253D8B4E3109ce07c80fc570f81B63696", //B币种合约
             "upper" : "100",                                                  //价格监控的上限 B 卖成 A
             "lower" : "60",                                                   //价格监控的下限 A 买成 B 
-            "tradeaddress":"0x61c7Cbd3fa89113E9d9cb40dB43587fD6C3032c5",      //操作的地址
+            "tradeaddress":"0x61c7Cbd3fa89113E9d9cb40dB43587",                //操作的地址
             "tradeaddresspriv":"xxxxx",                                       //私钥
             "tradeaddressreserveeth":"0.1",                                   //操作地址eth的保留最小余额
             "tradeaddressreservesrc":"0.1",                                   //操作地址source币种的保留最小余额
