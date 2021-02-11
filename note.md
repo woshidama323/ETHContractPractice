@@ -27,3 +27,10 @@ inch
 
 https://tutorialedge.net/golang/go-grpc-beginners-tutorial/
 ```
+
+### 重构思路
+
+```shell
+    ### 将交易对的结构作为一个操作对象，然后获取币种信息 作为它内部的方法
+    
+```
