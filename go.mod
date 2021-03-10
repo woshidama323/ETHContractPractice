@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/ethereum/go-ethereum v1.9.25
 	github.com/golang/protobuf v1.4.2 // indirect
+	github.com/sirupsen/logrus v1.8.1
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/woshidama323/config v1.0.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9

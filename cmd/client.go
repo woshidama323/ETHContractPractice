@@ -3,14 +3,15 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
-	"log"
 	"os"
 
+	logger "github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli/v2"
 	"github.com/woshidama323/config"
 	"google.golang.org/grpc"
 )
+
+var rlog = logger.New()
 
 func main() {
 	app := &cli.App{
@@ -29,7 +30,7 @@ func main() {
 			},
 		},
 		Action: func(ctx *cli.Context) error {
-			fmt.Println("communicating to robot server:", ctx.Args())
+			rlog.Info("communicating to robot server:", ctx.Args())
 
 			if ctx.NArg() <= 0 {
 
@@ -38,7 +39,7 @@ func main() {
 			var conn *grpc.ClientConn
 			conn, err := grpc.Dial(":9000", grpc.WithInsecure())
 			if err != nil {
-				log.Fatalln("failed to dial server,err:", err)
+				rlog.Fatalln("failed to dial server,err:", err)
 			}
 
 			defer conn.Close()
@@ -51,10 +52,10 @@ func main() {
 
 				response, err := newconn.ReloadConfig(context.Background(), &message)
 				if err != nil {
-					fmt.Printf("Error when calling reloadconfig,err:%s\n", err)
+					rlog.Errorf("Error when calling reloadconfig,err:%s\n", err)
 					return err
 				}
-				fmt.Println("Response from server:", response, " err:", err)
+				rlog.Info("Response from server:", response, " err:", err)
 				return nil
 			}
 
@@ -65,10 +66,10 @@ func main() {
 
 				response, err := newconn.ApprovalToOneSplitAudit(ctx.Context, &message)
 				if err != nil {
-					fmt.Printf("Error when calling reloadconfig,err:%s\n", err)
+					rlog.Errorf("Error when calling reloadconfig,err:%s\n", err)
 					return err
 				}
-				fmt.Println("Response from server:", response)
+				rlog.Info("Response from server:", response)
 				return nil
 			}
 
@@ -78,6 +79,6 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Fatal(err)
+		rlog.Fatal(err)
 	}
 }

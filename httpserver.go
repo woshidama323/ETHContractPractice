@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net"
 
 	"github.com/woshidama323/config"
@@ -12,7 +11,7 @@ import (
 func GrpcServer(change, response chan string) {
 	lis, err := net.Listen("tcp", ":9000")
 	if err != nil {
-		log.Fatalf("failed to listen for grpc server,err:", err)
+		rlog.Fatalln("failed to listen for grpc server,err:", err)
 	}
 
 	grpcServer := grpc.NewServer()
@@ -24,7 +23,7 @@ func GrpcServer(change, response chan string) {
 	config.RegisterConfigUpdateServer(grpcServer, &s)
 
 	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %s", err)
+		rlog.Fatalln("failed to serve: %s", err)
 	}
 
 }
