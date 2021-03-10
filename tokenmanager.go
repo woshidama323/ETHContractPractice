@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"math"
 	"math/big"
 	"os"
@@ -94,7 +93,7 @@ func (Tcon *TokenConfig) StringToBigInt(reserve string, precision uint64) (*big.
 // func (Tcon *TokenConfig) MinReserverDestinationAmount() (*big.Int, error) {
 // 	if minBalance, ok := big.NewInt(0).SetString(Tcon.TradeAddressReserveD, 10); ok {
 // 		minBalance = big.NewInt(0).Mul(minBalance, big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(Tcon.PrecisionDestination)), big.NewInt(0)))
-// 		rlog.Info("Current min Blance for TradeAddressReserveD: ", minBalance)
+// 		rlog.Infof("Current min Blance for TradeAddressReserveD: ", minBalance)
 // 		return minBalance, nil
 // 	}
 // 	return nil, errors.New("failed to parse string to big int for TradeAddressReserveD")
@@ -104,7 +103,7 @@ func (Tcon *TokenConfig) StringToBigInt(reserve string, precision uint64) (*big.
 // func (Tcon *TokenConfig) MinReserverEthAmount() (*big.Int, error) {
 // 	if minBalance, ok := big.NewInt(0).SetString(Tcon.TradeAddressReserveEth, 10); ok {
 // 		minBalance = big.NewInt(0).Mul(minBalance, big.NewInt(0).Exp(big.NewInt(10), big.NewInt(18), big.NewInt(0)))
-// 		rlog.Info("Current min Blance for TradeAddressReserveEth: ", minBalance)
+// 		rlog.Infof("Current min Blance for TradeAddressReserveEth: ", minBalance)
 // 		return minBalance, nil
 // 	}
 // 	return nil, errors.New("failed to parse string to big int for TradeAddressReserveEth")
@@ -114,7 +113,7 @@ func (Tcon *TokenConfig) StringToBigInt(reserve string, precision uint64) (*big.
 // func (Tcon *TokenConfig) StringToAmount(toconvert string) (*big.Int, error) {
 // 	if minBalance, ok := big.NewInt(0).SetString(toconvert, 10); ok {
 // 		minBalance = big.NewInt(0).Mul(minBalance, big.NewInt(0).Exp(big.NewInt(10), big.NewInt(18), big.NewInt(0)))
-// 		rlog.Info("Current min Blance for TradeAddressReserveEth: ", minBalance)
+// 		rlog.Infof("Current min Blance for TradeAddressReserveEth: ", minBalance)
 // 		return minBalance, nil
 // 	}
 // 	return nil, errors.New("failed to parse string to big int for TradeAddressReserveEth")
@@ -182,16 +181,16 @@ func (Tcon *TokenConfig) PriceMonitor() (struct {
 
 	GetPrice := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(int64(Tcon.PrecisionDestination)), big.NewInt(0))
 	distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), GetPrice, big.NewInt(100), big.NewInt(0))
-	rlog.Info("monitor current price is %d, distribution is [%d]\n", distri.ReturnAmount, distri.Distribution)
+	rlog.Infof("monitor current price is %d, distribution is [%d]\n", distri.ReturnAmount, distri.Distribution)
 	if err != nil {
-		rlog.Info("failed to GetExpectedReturn from 1inch, err:", err)
+		rlog.Infof("failed to GetExpectedReturn from 1inch, err:", err)
 		return struct {
 			ReturnAmount *big.Int
 			Distribution []*big.Int
 		}{}, err
 	}
 	if distri.ReturnAmount.Cmp(big.NewInt(0)) <= 0 {
-		rlog.Info("name:%s,returnamount is zero", Tcon.Name)
+		rlog.Infof("name:%s,returnamount is zero", Tcon.Name)
 		return struct {
 			ReturnAmount *big.Int
 			Distribution []*big.Int
@@ -211,7 +210,7 @@ func (Tcon *TokenConfig) CheckTxStatus() (status string, isPending bool, err err
 			return "", false, err
 		}
 		if isPending {
-			rlog.Info("== %s\tisPending:%v\n", Tcon.Name, txinfomap)
+			rlog.Infof("== %s\tisPending:%v\n", Tcon.Name, txinfomap)
 			return "", true, nil
 		}
 
@@ -219,10 +218,10 @@ func (Tcon *TokenConfig) CheckTxStatus() (status string, isPending bool, err err
 		if receipt, err := ForTokenClient.TransactionReceipt(context.Background(), txHash); err != nil {
 			rlog.Error("receipt got err:", err)
 		} else {
-			rlog.Info("*** receipt:", receipt)
+			rlog.Infof("*** receipt:", receipt)
 			if receipt.Status == 0 {
 
-				rlog.Info(" %v disable current pair\n", receipt)
+				rlog.Infof(" %v disable current pair\n", receipt)
 
 				//移除当前的tx
 
@@ -248,14 +247,14 @@ func (Tcon *TokenConfig) Test() {
 		return
 	}
 	if isPending {
-		rlog.Info("== %s\tisPending:%v\n", Tcon.Name, txHash)
+		rlog.Infof("== %s\tisPending:%v\n", Tcon.Name, txHash)
 	}
 
 	//是否是错误的
 	if receipt, err := ForTokenClient.TransactionReceipt(context.Background(), txHash); err != nil {
 		rlog.Error("receipt got err:", err)
 	} else {
-		rlog.Info("*** receipt:", receipt.Status)
+		rlog.Infof("*** receipt:", receipt.Status)
 
 	}
 
@@ -277,47 +276,47 @@ func (Tcon *TokenConfig) Action(dis struct {
 	// if strings.EqualFold(Tcon.Destination, eth) {
 	// 	UpperBigInt, err = Tcon.StringToBigInt(Tcon.Upper, 18)
 	// 	if err != nil {
-	// 		rlog.Info("faile to convert upper to big int err:%v", err)
+	// 		rlog.Infof("faile to convert upper to big int err:%v", err)
 	// 		return
 	// 	}
 
 	// 	LowerBigInt, err = Tcon.StringToBigInt(Tcon.Lower, 18)
 	// 	if err != nil {
-	// 		rlog.Info("faile to convert upper to big int err:%v", err)
+	// 		rlog.Infof("faile to convert upper to big int err:%v", err)
 	// 		return
 	// 	}
 	// } else {
 	UpperBigInt, err = Tcon.StringToBigInt(Tcon.Upper, Tcon.PrecisionDestination)
 	if err != nil {
-		rlog.Info("faile to convert upper to big int err:%v", err)
+		rlog.Infof("faile to convert upper to big int err:%v", err)
 		return
 	}
 
 	LowerBigInt, err = Tcon.StringToBigInt(Tcon.Lower, Tcon.PrecisionDestination)
 	if err != nil {
-		rlog.Info("faile to convert upper to big int err:%v", err)
+		rlog.Infof("faile to convert upper to big int err:%v", err)
 		return
 	}
-	rlog.Info("convert String to big int for upper:%v and lower:%v\n", UpperBigInt, LowerBigInt)
+	rlog.Infof("convert String to big int for upper:%v and lower:%v\n", UpperBigInt, LowerBigInt)
 	// }
 
 	if dis.ReturnAmount.Cmp(UpperBigInt) >= 0 {
-		rlog.Info("---Pair: [%s] Price: [%s] have been larger than Upper: [%s], starting swap from B -> A\n", Tcon.Name, dis.ReturnAmount, UpperBigInt)
+		rlog.Infof("---Pair: [%s] Price: [%s] have been larger than Upper: [%s], starting swap from B -> A\n", Tcon.Name, dis.ReturnAmount, UpperBigInt)
 		// 检查各个币种的余额，如果满足条件则进行兑换
 		tx, err = Tcon.TokenSwap("fromBtoA")
 		if err != nil {
-			rlog.Info("Action Got error:%v\n", err)
+			rlog.Infof("Action Got error:%v\n", err)
 		}
 	} else if dis.ReturnAmount.Cmp(LowerBigInt) <= 0 {
 		// 当前价格低于最小值，则
-		rlog.Info("---Pair [%s] Price: [%s] have been less than Lower [%s], starting swap from A -> B\n", Tcon.Name, dis.ReturnAmount, LowerBigInt)
+		rlog.Infof("---Pair [%s] Price: [%s] have been less than Lower [%s], starting swap from A -> B\n", Tcon.Name, dis.ReturnAmount, LowerBigInt)
 		tx, err = Tcon.TokenSwap("fromAtoB")
 		if err != nil {
-			rlog.Info("Action Got error:%v\n", err)
+			rlog.Infof("Action Got error:%v\n", err)
 		}
 	} else {
 		//不交易
-		rlog.Info(".-.-.- Pair [%s] Price: [%s] is between Lower:[%s] and Upper:[%s], do nothing\n", Tcon.Name, dis.ReturnAmount, Tcon.Lower, Tcon.Upper)
+		rlog.Infof(".-.-.- Pair [%s] Price: [%s] is between Lower:[%s] and Upper:[%s], do nothing\n", Tcon.Name, dis.ReturnAmount, Tcon.Lower, Tcon.Upper)
 
 	}
 	if len(tx) != 0 {
@@ -340,7 +339,7 @@ func (Tcon *TokenConfig) TokenSwap(strategy string) (string, error) {
 		mul97 := big.NewInt(0).Mul(retValue, big.NewInt(0).Sub(big.NewInt(100), big.NewInt(0).SetUint64(Tcon.Slipper)))
 
 		curSlipper := big.NewInt(0).Div(mul97, big.NewInt(100))
-		rlog.Info("PairName:%v, current slipper is:%v\n", Tcon.Name, Tcon.Slipper)
+		rlog.Infof("PairName:%v, current slipper is:%v\n", Tcon.Name, Tcon.Slipper)
 		return curSlipper
 	}
 
@@ -348,7 +347,7 @@ func (Tcon *TokenConfig) TokenSwap(strategy string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	rlog.Info("Current min Blance of ETH for [%s] is [%v] \n", Tcon.Name, ethmin)
+	rlog.Infof("Current min Blance of ETH for [%s] is [%v] \n", Tcon.Name, ethmin)
 	if strategy == "fromAtoB" {
 		//先重新获取到具体的数据，
 		//当明确知道哪一个交易方向的时候,才去看看余额情况，如果这个方向上的source余额为空则拒绝交易
@@ -366,49 +365,49 @@ func (Tcon *TokenConfig) TokenSwap(strategy string) (string, error) {
 				canTradeEth := big.NewInt(0).Sub(ethBalance, ethmin)
 				distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.SourceAddress), common.HexToAddress(Tcon.Destination), canTradeEth, big.NewInt(100), big.NewInt(0))
 				if err != nil {
-					rlog.Info("failed to GetExpectedReturn from 1inch, err:", err)
+					rlog.Infof("failed to GetExpectedReturn from 1inch, err:", err)
 					return "", err
 				}
 				tx, err = OneInchInstance.Swap(auth, common.HexToAddress(Tcon.SourceAddress), common.HexToAddress(Tcon.Destination), canTradeEth, slipper(distri.ReturnAmount), distri.Distribution, big.NewInt(0))
 				if err != nil {
-					rlog.Info("got error:", err, " tx:", tx)
+					rlog.Infof("got error:", err, " tx:", tx)
 					return "", err
 				}
 			} else {
-				rlog.Info("account :%s has no enough eth for swap balance:%d\n", Tcon.TradeAddress, ethBalance)
+				rlog.Infof("account :%s has no enough eth for swap balance:%d\n", Tcon.TradeAddress, ethBalance)
 				return "", errors.New("")
 			}
 
 		} else {
 			sBanlanceErc20, err := Tcon.TradeAddrBalanceForSource()
 			if err != nil {
-				rlog.Info("erc20 token balance is zero for address:", Tcon.TradeAddress, " current token address:", Tcon.SourceAddress)
+				rlog.Error("erc20 token balance is zero for address:", Tcon.TradeAddress, " current token address:", Tcon.SourceAddress)
 				return "", err
 			}
 
 			minReserveSource, err := Tcon.StringToBigInt(Tcon.TradeAddressReserveS, Tcon.PrecisionSource)
 			if err != nil {
-				rlog.Info("failed to get erc20 min token availabe in config file,tokenaddress:", Tcon.SourceAddress, " for address:", Tcon.TradeAddress, "ethsource:", minReserveSource)
+				rlog.Error("failed to get erc20 min token availabe in config file,tokenaddress:", Tcon.SourceAddress, " for address:", Tcon.TradeAddress, "ethsource:", minReserveSource)
 				return "", err
 			}
-			rlog.Info("Current min Blance of source Reserve for [%s] is [%v] \n", Tcon.Name, minReserveSource)
+			rlog.Infof("Current min Blance of source Reserve for [%s] is [%v] \n", Tcon.Name, minReserveSource)
 			if sBanlanceErc20.Cmp(minReserveSource) > 0 {
 				//最小的return效果可以用滑点的方法
 				sBerc20Fortrade := big.NewInt(0).Sub(sBanlanceErc20, minReserveSource)
 				distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.SourceAddress), common.HexToAddress(Tcon.Destination), sBerc20Fortrade, big.NewInt(100), big.NewInt(0))
 				if err != nil {
-					rlog.Info("failed to GetExpectedReturn from 1inch, err:", err)
+					rlog.Error("failed to GetExpectedReturn from 1inch, err:", err)
 					return "", err
 				}
-				log.Println("+++distri:", distri)
+				rlog.Info("+++distri:", distri)
 				tx, err = OneInchInstance.Swap(auth, common.HexToAddress(Tcon.SourceAddress), common.HexToAddress(Tcon.Destination), sBerc20Fortrade, slipper(distri.ReturnAmount), distri.Distribution, big.NewInt(0))
 				if err != nil {
-					rlog.Info("got error:", err, " tx:", tx)
+					rlog.Error("got error:", err, " tx:", tx)
 					Tcon.Status = "disable"
 					return "", err
 				}
 			} else {
-				rlog.Info("account :%s has no enough token for swap balance:%s\n", Tcon.TradeAddress, sBanlanceErc20)
+				rlog.Infof("account :%s has no enough token for swap balance:%s\n", Tcon.TradeAddress, sBanlanceErc20)
 				return "", errors.New("has no enough token for swap balance")
 			}
 
@@ -437,13 +436,13 @@ func (Tcon *TokenConfig) TokenSwap(strategy string) (string, error) {
 				rlog.Info("++++++ current sub Gas:", canTradeEth)
 
 				if canTradeEth.Cmp(big.NewInt(0)) <= 0 {
-					rlog.Info("Current balance for address:", Tcon.TradeAddress, " is not enough for trading,canTradeEth:", canTradeEth)
+					rlog.Warn("Current balance for address:", Tcon.TradeAddress, " is not enough for trading,canTradeEth:", canTradeEth)
 					return "", errors.New("is not enough for trading")
 				}
 
 				distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), canTradeEth, big.NewInt(100), big.NewInt(0))
 				if err != nil {
-					rlog.Info("failed to GetExpectedReturn from 1inch, err:", err)
+					rlog.Error("failed to GetExpectedReturn from 1inch, err:", err)
 					return "", err
 				}
 
@@ -457,17 +456,17 @@ func (Tcon *TokenConfig) TokenSwap(strategy string) (string, error) {
 				// 	To:   &forpoint,
 				// 	Data: data,
 				// })
-				// rlog.Info("how to get gas....%v\n", gasLimittest)
+				// rlog.Infof("how to get gas....%v\n", gasLimittest)
 				// if err != nil {
 				// 	log.Fatal(err)
 				// }
 				tx, err = OneInchInstance.Swap(auth, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), canTradeEth, slipper(distri.ReturnAmount), distri.Distribution, big.NewInt(0))
 				if err != nil {
-					rlog.Info("got error:", err, " tx:", tx)
+					rlog.Error("got error:", err, " tx:", tx)
 					return "", err
 				}
 			} else {
-				rlog.Info("account :%s has no enough eth for swap balance:%s", Tcon.TradeAddress, dBalanceEth)
+				rlog.Infof("account :%s has no enough eth for swap balance:%s", Tcon.TradeAddress, dBalanceEth)
 				return "", errors.New("has no enough eth for swap balance")
 			}
 
@@ -478,35 +477,35 @@ func (Tcon *TokenConfig) TokenSwap(strategy string) (string, error) {
 			}
 			minReserveDestination, err := Tcon.StringToBigInt(Tcon.TradeAddressReserveD, Tcon.PrecisionDestination)
 			if err != nil {
-				rlog.Info("failed to get erc20 min token availabe in config file,tokenaddress:", Tcon.SourceAddress, " for address:", Tcon.TradeAddress, "minReserveDestination:", minReserveDestination)
+				rlog.Error("failed to get erc20 min token availabe in config file,tokenaddress:", Tcon.SourceAddress, " for address:", Tcon.TradeAddress, "minReserveDestination:", minReserveDestination)
 				return "", err
 			}
-			rlog.Info("Current min Blance of destination Reserve for [%s] is [%v] \n", Tcon.Name, minReserveDestination)
+			rlog.Infof("Current min Blance of destination Reserve for [%s] is [%v] \n", Tcon.Name, minReserveDestination)
 
 			if dBalanceErc20.Cmp(minReserveDestination) > 0 {
 				//最小的return效果可以用滑点的方法
 				subResult := big.NewInt(0).Sub(dBalanceErc20, minReserveDestination)
 				distri, err := OneInchInstance.GetExpectedReturn(nil, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), subResult, big.NewInt(100), big.NewInt(0))
 				if err != nil {
-					rlog.Info("failed to GetExpectedReturn from 1inch, err:", err)
+					rlog.Error("failed to GetExpectedReturn from 1inch, err:", err)
 					return "", err
 				}
-				log.Println("+++distri:", distri) //slipper(distri.ReturnAmount)
+				rlog.Info("+++distri:", distri) //slipper(distri.ReturnAmount)
 				tx, err = OneInchInstance.Swap(auth, common.HexToAddress(Tcon.Destination), common.HexToAddress(Tcon.SourceAddress), subResult, slipper(distri.ReturnAmount), distri.Distribution, big.NewInt(0))
 				if err != nil {
-					rlog.Info("got error:", err, " tx:", tx)
+					rlog.Error("got error:", err, " tx:", tx)
 					Tcon.Status = "disable"
 					return "", err
 				}
 			} else {
-				rlog.Info("account :%s has no enough tokens for swap balance:%d\n", Tcon.TradeAddress, dBalanceErc20)
+				rlog.Infof("account :%s has no enough tokens for swap balance:%d\n", Tcon.TradeAddress, dBalanceErc20)
 				return "", errors.New("has no enough tokens for swap balance")
 			}
 
 		}
 	}
 
-	rlog.Info("*************** tx:", tx.Hash().String())
+	rlog.Infoln("*************** tx:", tx.Hash().String())
 	Tcon.TxInfos = append(Tcon.TxInfos, tx.Hash().String())
 	return tx.Hash().String(), nil
 }
@@ -523,11 +522,11 @@ func (Tcon *TokenConfig) BuildAuth() (*bind.TransactOpts, error) {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
-		log.Printf("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
+		rlog.Errorln("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
 		return nil, errors.New("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
 	}
 
-	rlog.Info("Is this the same address provided from account:", crypto.PubkeyToAddress(*publicKeyECDSA), " == ", Tcon.TradeAddress)
+	rlog.Infoln("Is this the same address provided from account:", crypto.PubkeyToAddress(*publicKeyECDSA), " == ", Tcon.TradeAddress)
 	nonce, err := ForTokenClient.PendingNonceAt(context.Background(), common.HexToAddress(Tcon.TradeAddress))
 	if err != nil {
 		// log.Fatal(err)
@@ -545,7 +544,7 @@ func (Tcon *TokenConfig) BuildAuth() (*bind.TransactOpts, error) {
 	// 	Data: DataWrapperForGasEstimate(source, destination, big.NewInt(1), dis.ReturnAmount, dis.Distribution, big.NewInt(0)),
 	// })
 
-	// rlog.Info("gaslimit  is from network is :", gasLimit)
+	// rlog.Infof("gaslimit  is from network is :", gasLimit)
 
 	auth := bind.NewKeyedTransactor(privateKey)
 	auth.Nonce = big.NewInt(int64(nonce))
@@ -561,12 +560,12 @@ func (Tcon *TokenConfig) BuildAuth() (*bind.TransactOpts, error) {
 		PriceTimes := big.NewInt(0).Add(big.NewInt(100), big.NewInt(0).SetUint64(Tcon.GasPriceTimes))
 		adjustPriceTimes := big.NewInt(0).Mul(gasPrice, PriceTimes)
 		adjustPrice = big.NewInt(0).Div(adjustPriceTimes, big.NewInt(100))
-		rlog.Info("Gas times is:", Tcon.GasPriceTimes, " origin gas price:", gasPrice, " after adjust:", adjustPrice)
+		rlog.Infoln("Gas times is:", Tcon.GasPriceTimes, " origin gas price:", gasPrice, " after adjust:", adjustPrice)
 	}
 	auth.GasPrice = adjustPrice
 	GasUsedSum := big.NewInt(0).Mul(big.NewInt(0).SetInt64(300000), gasPrice)
 
-	rlog.Info("Get gas price:%s, gas limit:%d, gas total used:%d\n", auth.GasPrice, auth.GasLimit, GasUsedSum)
+	rlog.Infof("Get gas price:%s, gas limit:%d, gas total used:%d\n", auth.GasPrice, auth.GasLimit, GasUsedSum)
 	return auth, nil
 }
 
@@ -575,7 +574,7 @@ func (Tcon *TokenConfig) ApproveForOneSplitAudit(source string, precision uint64
 
 	sourceInstance, err := NewErc20token(common.HexToAddress(source), ForTokenClient)
 	if err != nil {
-		rlog.Info("failed to get instance of erc20 token err:", err)
+		rlog.Errorln("failed to get instance of erc20 token err:", err)
 		return "", errors.New("failed to get instance of erc20 token")
 	}
 
@@ -587,7 +586,7 @@ func (Tcon *TokenConfig) ApproveForOneSplitAudit(source string, precision uint64
 	prec := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(0).SetUint64(precision), big.NewInt(0))
 	tx, err := sourceInstance.Approve(auth, common.HexToAddress(OneSplitMainnetAddress), big.NewInt(0).Mul(prec, big.NewInt(9223372036854775800)))
 	if err != nil {
-		rlog.Info("failed to Approve for token:", source, " to spender:", OneSplitMainnetAddress, " precision:", precision, " err:", err)
+		rlog.Errorln("failed to Approve for token:", source, " to spender:", OneSplitMainnetAddress, " precision:", precision, " err:", err)
 		return "", errors.New("failed to Approve for onesplitaudit")
 	}
 	if tx != nil {
@@ -609,23 +608,23 @@ type TokenInfos struct {
 func (TInfos *TokenInfos) LoadConfig() error {
 	usr, err := user.Current()
 	if err != nil {
-		log.Fatal(err)
+		rlog.Fatalln(err)
 	}
-	rlog.Info(usr.HomeDir)
+	rlog.Infoln(usr.HomeDir)
 	configfile := usr.HomeDir + "/" + defaultConfigFile
 	jsonFile, err := os.Open(configfile)
 	if err != nil {
-		rlog.Info(err)
+		rlog.Fatalln(err)
 		return err
 	}
-	rlog.Info("Successfully Opened users.json")
+	rlog.Infoln("Successfully Opened users.json")
 	defer jsonFile.Close()
 
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 	var tokeninfos TokenInfos
 
 	if err := json.Unmarshal(byteValue, &tokeninfos); err != nil {
-		rlog.Info("failed to json the config from file: ", configfile, " err:", err)
+		rlog.Errorln("failed to json the config from file: ", configfile, " err:", err)
 		return err
 	}
 	TInfos.TConfig = tokeninfos.TConfig
