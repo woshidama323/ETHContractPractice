@@ -31,6 +31,9 @@ var TInfos TokenInfos
 //OneInchInstance 的实例
 var OneInchInstance *Onesplitaudit
 
+//增加全局的nodeurl
+var globalProvider string
+
 func main() {
 	rlog.Info("start robot server....")
 	// transferEvent()
@@ -40,6 +43,8 @@ func main() {
 	if netmode == nil {
 		rlog.Fatal("please input a right network:%s\n", *netmode)
 	}
+
+	globalProvider = *netmode
 
 	client, err := ethclient.Dial(*netmode)
 	if err != nil {
@@ -132,6 +137,11 @@ func main() {
 	ChangeChannel := make(chan string, 1)
 	ResponseChannel := make(chan string, 1)
 	go GrpcServer(ChangeChannel, ResponseChannel)
+
+	//启动ws监控
+	ws, _ := NewWebsocketClient()
+	go ws.MsgRead()
+	ws.MsgWrite()
 
 	for {
 		select {

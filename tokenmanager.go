@@ -218,7 +218,7 @@ func (Tcon *TokenConfig) CheckTxStatus() (status string, isPending bool, err err
 		if receipt, err := ForTokenClient.TransactionReceipt(context.Background(), txHash); err != nil {
 			rlog.Error("receipt got err:", err)
 		} else {
-			rlog.Infof("*** receipt:", receipt)
+			rlog.Infoln("*** receipt:", receipt)
 			if receipt.Status == 0 {
 
 				rlog.Infof(" %v disable current pair\n", receipt)
@@ -602,6 +602,9 @@ func (Tcon *TokenConfig) ApproveForOneSplitAudit(source string, precision uint64
 //TokenInfos 用于解析tokens的数据
 type TokenInfos struct {
 	TConfig []TokenConfig `json:"tokens"`
+	//增加websocket 部分的配置
+	//增加ws的源
+
 }
 
 //LoadConfig 将数据从config文件装载到本地服务中
